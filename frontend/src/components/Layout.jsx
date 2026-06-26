@@ -17,7 +17,7 @@ const AccountCtx = createContext({ perpsAccountId: null, setPerpsAccountId: () =
 export function useAccount() { return useContext(AccountCtx) }
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/cockpit', icon: Gauge, label: 'Cockpit' },
   { to: '/trades', icon: List, label: 'Trade Log' },
   { to: '/reports', icon: BarChart3, label: 'Analytics' },
@@ -153,7 +153,7 @@ export default function Layout() {
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/'}
+                end={to === '/dashboard'}
                 className={({ isActive }) =>
                   `relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                     isActive

@@ -10,6 +10,7 @@ import PeriodSelector from '../dashboard/PeriodSelector'
 import { fetchPerpsOverview, fetchPerpsPerformance, fetchPerpsDailyPnl, fetchPerpsDrawdown, fetchPerpsEquity, fetchPerpsCockpit } from '../lib/api'
 import { useAccount } from '../components/Layout'
 import TodayPlanCard from '../components/TodayPlanCard'
+import { usePreferences } from '../preferences/PreferencesContext'
 
 const fmtMoney = (n) => (n == null ? '—' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const signedUsd = (n) => (n == null ? '—' : `${n >= 0 ? '+' : '-'}$${Math.abs(Number(n)).toFixed(2)}`)
@@ -50,7 +51,8 @@ const PERPS_FETCHERS = {
 }
 
 export default function PerpsDashboard() {
-  const [periodState, setPeriodState] = useState(() => loadPeriod('leftcurve_perps_period', 'all'))
+  const { prefs } = usePreferences()
+  const [periodState, setPeriodState] = useState(() => loadPeriod('leftcurve_perps_period', prefs.default_period || 'all'))
   const { period, custom } = periodState
   const onPeriodChange = (next) => { setPeriodState(next); savePeriod('leftcurve_perps_period', next.period, next.custom) }
   const { perpsAccountId } = useAccount()

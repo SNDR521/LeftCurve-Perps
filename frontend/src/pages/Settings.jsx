@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   updateProfile, changePassword,
   telegramStatus, telegramLinkStart, telegramUnlink,
   telegramBotConfig, telegramActivateBot, telegramDeleteBot,
+  searchInstruments,
 } from '../lib/api'
 import { useAuth } from '../auth/AuthContext'
+import { usePreferences } from '../preferences/PreferencesContext'
 import {
-  Database, Send,
+  Database, Send, Monitor, ChevronUp, ChevronDown, X, Plus, Search,
 } from 'lucide-react'
 
 export default function Settings() {
@@ -19,6 +21,9 @@ export default function Settings() {
 
       {/* ── Profile ───────────────────────────────────────────────── */}
       <ProfileSection user={user} refresh={refresh} />
+
+      {/* ── Appearance ────────────────────────────────────────────── */}
+      <AppearanceSection />
 
       {/* ── Telegram ──────────────────────────────────────────────── */}
       <TelegramSection />
@@ -36,6 +41,245 @@ export default function Settings() {
         </p>
       </section>
     </div>
+  )
+}
+
+
+// ── Appearance Section ─────────────────────────────────────────────────────
+
+const PERIODS_LIST = [
+  { key: 'today', label: 'Daily' },
+  { key: 'week', label: 'Weekly' },
+  { key: 'month', label: 'Monthly' },
+  { key: 'year', label: 'Yearly' },
+  { key: 'all', label: 'Overall' },
+]
+
+const PAGE_OPTIONS = [
+  { value: '/dashboard', label: 'Dashboard' },
+  { value: '/cockpit', label: 'Cockpit' },
+  { value: '/trades', label: 'Trade Log' },
+  { value: '/reports', label: 'Analytics' },
+  { value: '/calendar', label: 'Calendar' },
+  { value: '/plan', label: 'Daily Plan' },
+]
+
+function AppearanceSection() {
+  const { prefs, updatePrefs } = usePreferences()
+  const tickerBar = prefs.ticker_bar ?? { enabled: true, symbols: [] }
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const searchRef = useRef(null)
+
+  // Debounced instrument search
+  useEffect(() => {
+    if (!searchQ.trim()) { setSearchResults([]); return }
+    const tid = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await searchInstruments(searchQ)
+        setSearchResults(res || [])
+      } catch { setSearchResults([]) }
+      finally { setSearching(false) }
+    }, 250)
+    return () => clearTimeout(tid)
+  }, [searchQ])
+
+  function toggleEnabled(enabled) {
+    updatePrefs({ ticker_bar: { ...tickerBar, enabled } })
+  }
+
+  function moveSymbol(idx, dir) {
+    const syms = [...tickerBar.symbols]
+    const target = idx + dir
+    if (target < 0 || target >= syms.length) return
+    ;[syms[idx], syms[target]] = [syms[target], syms[idx]]
+    updatePrefs({ ticker_bar: { ...tickerBar, symbols: syms } })
+  }
+
+  function removeSymbol(idx) {
+    const syms = tickerBar.symbols.filter((_, i) => i !== idx)
+    updatePrefs({ ticker_bar: { ...tickerBar, symbols: syms } })
+  }
+
+  function updateLabel(idx, label) {
+    const syms = tickerBar.symbols.map((s, i) => i === idx ? { ...s, label } : s)
+    updatePrefs({ ticker_bar: { ...tickerBar, symbols: syms } })
+  }
+
+  function addSymbol(sym) {
+    if (!sym?.symbol) return
+    if (tickerBar.symbols.some(s => s.symbol === sym.symbol)) return
+    const syms = [...tickerBar.symbols, { symbol: sym.symbol, label: sym.label || sym.symbol, source: sym.source || 'yahoo' }]
+    updatePrefs({ ticker_bar: { ...tickerBar, symbols: syms } })
+    setSearchQ('')
+    setSearchResults([])
+  }
+
+  function addFreeText() {
+    const raw = searchQ.trim().toUpperCase()
+    if (!raw) return
+    const source = /USDT$/i.test(raw) ? 'bybit' : 'yahoo'
+    addSymbol({ symbol: raw, label: raw, source })
+  }
+
+  return (
+    <section className="card p-5 space-y-5">
+      <div className="flex items-center gap-2.5">
+        <Monitor className="w-4 h-4 text-[#38bdf8]" />
+        <h2 className="text-[15px] font-semibold text-white">Appearance</h2>
+      </div>
+
+      {/* Market Ticker Toggle */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[13px] text-[#e2e4ef]">Show market ticker bar</p>
+          <p className="text-[11px] text-[#4e5166] mt-0.5">Live prices in the top bar</p>
+        </div>
+        <button
+          onClick={() => toggleEnabled(!tickerBar.enabled)}
+          className={`relative inline-flex rounded-full transition-colors focus:outline-none ${
+            tickerBar.enabled ? 'bg-[#38bdf8]' : 'bg-[#2a2c30]'
+          }`}
+          style={{ minWidth: '2.5rem', width: '2.5rem', height: '1.375rem' }}
+          aria-checked={tickerBar.enabled}
+          role="switch"
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 bg-white rounded-full shadow transition-transform ${
+              tickerBar.enabled ? 'translate-x-[1.125rem]' : 'translate-x-0'
+            }`}
+            style={{ width: '1.125rem', height: '1.125rem' }}
+          />
+        </button>
+      </div>
+
+      {/* Symbol editor — only when enabled */}
+      {tickerBar.enabled && (
+        <div className="space-y-3 border-t border-[#2a2c30] pt-4">
+          <p className="text-[12px] font-semibold text-[#8d91a6] uppercase tracking-wide">Ticker symbols</p>
+
+          {/* Symbols list */}
+          <div className="space-y-1.5">
+            {tickerBar.symbols.map((s, i) => (
+              <div key={s.symbol} className="flex items-center gap-2">
+                {/* Reorder */}
+                <div className="flex flex-col gap-0">
+                  <button onClick={() => moveSymbol(i, -1)} disabled={i === 0}
+                    className="text-[#4e5166] hover:text-[#8d91a6] disabled:opacity-20 leading-none">
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => moveSymbol(i, 1)} disabled={i === tickerBar.symbols.length - 1}
+                    className="text-[#4e5166] hover:text-[#8d91a6] disabled:opacity-20 leading-none">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {/* Symbol id */}
+                <span className="font-mono text-[11px] text-[#4e5166] w-20 shrink-0 truncate">{s.symbol}</span>
+                {/* Editable label */}
+                <input
+                  value={s.label}
+                  onChange={e => updateLabel(i, e.target.value)}
+                  className="input text-[12px] py-1 px-2 flex-1 min-w-0"
+                />
+                {/* Source badge */}
+                <span className={`badge text-[10px] shrink-0 ${
+                  s.source === 'bybit'
+                    ? 'bg-[#f7931a]/10 text-[#f7931a] border border-[#f7931a]/20'
+                    : 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20'
+                }`}>
+                  {s.source}
+                </span>
+                {/* Remove */}
+                <button onClick={() => removeSymbol(i)}
+                  className="text-[#4e5166] hover:text-[#de576f] shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Add symbol search */}
+          <div className="relative" ref={searchRef}>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#4e5166] pointer-events-none" />
+                <input
+                  value={searchQ}
+                  onChange={e => setSearchQ(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addFreeText() }}
+                  placeholder="Search or type symbol + Enter"
+                  className="input text-[12px] py-1.5 pl-8 w-full"
+                />
+              </div>
+              <button onClick={addFreeText} disabled={!searchQ.trim()}
+                className="btn-blue text-[12px] px-3 py-1.5 disabled:opacity-40 flex items-center gap-1">
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
+
+            {/* Dropdown results */}
+            {searchResults.length > 0 && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#1e2024] border border-[#2a2c30] rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                {searching && <p className="px-3 py-2 text-[12px] text-[#4e5166]">Searching…</p>}
+                {searchResults.map(r => (
+                  <button
+                    key={r.symbol}
+                    onClick={() => addSymbol(r)}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#2a2c30] transition-colors"
+                  >
+                    <span className="font-mono text-[11px] text-[#4e5166] w-20 shrink-0 truncate">{r.symbol}</span>
+                    <span className="text-[12px] text-[#e2e4ef] flex-1 truncate">{r.label}</span>
+                    <span className={`badge text-[10px] shrink-0 ${
+                      r.source === 'bybit'
+                        ? 'bg-[#f7931a]/10 text-[#f7931a] border border-[#f7931a]/20'
+                        : 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20'
+                    }`}>{r.source}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Default dashboard timeframe */}
+      <div className="border-t border-[#2a2c30] pt-4 space-y-2">
+        <p className="text-[13px] text-[#e2e4ef]">Default dashboard timeframe</p>
+        <p className="text-[11px] text-[#4e5166]">Used when no period is saved in browser storage</p>
+        <div className="flex gap-1 flex-wrap">
+          {PERIODS_LIST.map(p => (
+            <button
+              key={p.key}
+              onClick={() => updatePrefs({ default_period: p.key })}
+              className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                prefs.default_period === p.key
+                  ? 'bg-[#38bdf8] text-white'
+                  : 'bg-[#2a2c30] text-[#8d91a6] hover:text-[#e2e4ef]'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Default landing page */}
+      <div className="border-t border-[#2a2c30] pt-4 space-y-2">
+        <p className="text-[13px] text-[#e2e4ef]">Default landing page</p>
+        <p className="text-[11px] text-[#4e5166]">Where to land after login (deep links always work)</p>
+        <select
+          value={prefs.landing?.path || '/dashboard'}
+          onChange={e => updatePrefs({ landing: { path: e.target.value } })}
+          className="input text-[12px] py-1.5"
+        >
+          {PAGE_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    </section>
   )
 }
 

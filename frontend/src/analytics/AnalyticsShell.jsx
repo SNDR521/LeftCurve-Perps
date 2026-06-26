@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import PeriodSelector from '../dashboard/PeriodSelector'
 import { getDateRange, loadPeriod, savePeriod } from '../dashboard/period'
+import { usePreferences } from '../preferences/PreferencesContext'
 
 export default function AnalyticsShell({ adapter }) {
   const accountParams = adapter.useAccountParams()
-  const init = useMemo(() => loadPeriod(adapter.storageKey, 'all'), [adapter.storageKey])
+  const { prefs } = usePreferences()
+  const init = useMemo(() => loadPeriod(adapter.storageKey, prefs.default_period || 'all'), [adapter.storageKey, prefs.default_period])
   const [period, setPeriod] = useState(init.period)
   const [custom, setCustom] = useState(init.custom)
   const [activeKey, setActiveKey] = useState(adapter.tabs[0].key)

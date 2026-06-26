@@ -14,6 +14,7 @@ import Alarms from './pages/Alarms'
 import News from './pages/News'
 import Settings from './pages/Settings'
 import { AuthProvider, useAuth } from './auth/AuthContext'
+import { PreferencesProvider, usePreferences } from './preferences/PreferencesContext'
 import Login from './pages/Login'
 
 function RequireAuth({ children }) {
@@ -29,14 +30,23 @@ function RequireAuth({ children }) {
   return children
 }
 
+// Redirects from '/' to the user's preferred landing page.
+// Only fires when the user navigates to exactly '/'. Deep links pass through unchanged.
+function LandingRedirect() {
+  const { prefs } = usePreferences()
+  const target = prefs?.landing?.path || '/dashboard'
+  return <Navigate to={target} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route element={<RequireAuth><Layout /></RequireAuth>}>
-            <Route path="/" element={<PerpsDashboard />} />
+          <Route element={<RequireAuth><PreferencesProvider><Layout /></PreferencesProvider></RequireAuth>}>
+            <Route path="/" element={<LandingRedirect />} />
+            <Route path="/dashboard" element={<PerpsDashboard />} />
             <Route path="/cockpit" element={<PerpsCockpit />} />
             <Route path="/trades" element={<PerpsPositions />} />
             <Route path="/trades/:id" element={<PerpsPositionDetail />} />

@@ -284,3 +284,27 @@ export const telegramUnlink = () => alarmsRequest('/telegram/link', { method: 'D
 export const telegramBotConfig   = () => alarmsRequest('/telegram/bot-config')
 export const telegramActivateBot = (token, baseUrl) => alarmsRequest('/telegram/bot-config', { method: 'POST', body: JSON.stringify({ token, base_url: baseUrl }) })
 export const telegramDeleteBot   = () => alarmsRequest('/telegram/bot-config', { method: 'DELETE' })
+
+// ── Preferences ────────────────────────────────────────────────────────────
+
+async function prefsRequest(path, options = {}) {
+  const res = await fetch(`/api/preferences${path}`, {
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    credentials: 'include',
+    ...options,
+  })
+  if (res.status === 401) { window.location.href = '/login'; throw new Error('Not authenticated') }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Request failed')
+  }
+  return res.json()
+}
+
+export function fetchPreferences() { return prefsRequest('') }
+export function updatePreferences(partial) {
+  return prefsRequest('', { method: 'PUT', body: JSON.stringify(partial) })
+}
+export function searchInstruments(q) {
+  return marketDataRequest(`/search?q=${encodeURIComponent(q)}`)
+}

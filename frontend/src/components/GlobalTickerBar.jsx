@@ -1,22 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchTickerQuotes } from '../lib/api'
 import useBybitTickers from '../lib/useBybitTickers'
+import { usePreferences } from '../preferences/PreferencesContext'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
-
-// Index/futures rows come from the backend (Yahoo: ES/NQ/RTY futures, DAX,
-// VIX, gold, oil); crypto streams live from Bybit's public WebSocket.
-const LABELS = {
-  'ES=F': 'US500',
-  'NQ=F': 'US100',
-  'RTY=F': 'US2000',
-  '^GDAXI': 'DAX40',
-  '^VIX': 'VIX',
-  'GC=F': 'GOLD',
-  'CL=F': 'OIL',
-}
-
-const CRYPTO = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']
-const CRYPTO_LABELS = { BTCUSDT: 'BTC', ETHUSDT: 'ETH', SOLUSDT: 'SOL' }
 
 function fmt(price, big) {
   if (price == null || price === 0) return '—'
@@ -46,38 +32,51 @@ function Cell({ label, price, pct, big, divider }) {
 }
 
 export default function GlobalTickerBar() {
-  const { data = [] } = useQuery({
-    queryKey: ['ticker-bar'],
-    queryFn: () => fetchTickerQuotes(),
+  const { prefs } = usePreferences()
+  const tickerBar = prefs.ticker_bar ?? { enabled: true, symbols: [] }
+
+  // Partition symbols by source
+  const bybitSymbols = tickerBar.symbols
+    .filter(s => s.source === 'bybit' || /USDT$/i.test(s.symbol))
+    .map(s => s.symbol)
+  const otherSymbols = tickerBar.symbols
+    .filter(s => s.source !== 'bybit' && !/USDT$/i.test(s.symbol))
+    .map(s => s.symbol)
+
+  const { data: restData = [] } = useQuery({
+    queryKey: ['ticker-bar', otherSymbols.join(',')],
+    queryFn: () => fetchTickerQuotes(otherSymbols.join(',')),
+    enabled: otherSymbols.length > 0,
     refetchInterval: 30_000,
     staleTime: 25_000,
   })
-  const live = useBybitTickers(CRYPTO)
 
-  const hasAny = data.length > 0 || Object.keys(live).length > 0
-  if (!hasAny) return null
+  const live = useBybitTickers(bybitSymbols)
+
+  if (!tickerBar.enabled) return null
+  if (tickerBar.symbols.length === 0) return null
+
+  // Build a lookup for rest prices by symbol
+  const restBySymbol = Object.fromEntries(restData.map(q => [q.symbol, q]))
 
   return (
     <div className="h-9 bg-[#161718] border-b border-[#2a2c30] flex items-center px-4 gap-0 overflow-x-auto shrink-0">
-      {data.map((q, i) => (
-        <Cell
-          key={q.symbol}
-          label={LABELS[q.symbol] || q.symbol}
-          price={q.price}
-          pct={q.change_pct}
-          divider={i > 0}
-        />
-      ))}
-      {CRYPTO.map((sym, i) => (
-        <Cell
-          key={sym}
-          label={CRYPTO_LABELS[sym]}
-          price={live[sym]?.price}
-          pct={live[sym]?.pct24h}
-          big
-          divider={data.length > 0 || i > 0}
-        />
-      ))}
+      {tickerBar.symbols.map((entry, i) => {
+        const isBybit = entry.source === 'bybit' || /USDT$/i.test(entry.symbol)
+        const price = isBybit ? live[entry.symbol]?.price : restBySymbol[entry.symbol]?.price
+        const pct = isBybit ? live[entry.symbol]?.pct24h : restBySymbol[entry.symbol]?.change_pct
+        const big = isBybit && price != null && price >= 1000
+        return (
+          <Cell
+            key={entry.symbol}
+            label={entry.label || entry.symbol}
+            price={price}
+            pct={pct}
+            big={big}
+            divider={i > 0}
+          />
+        )
+      })}
     </div>
   )
 }
