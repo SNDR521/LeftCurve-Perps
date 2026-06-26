@@ -14,7 +14,6 @@ import app.core.models    # noqa: F401
 import app.perps.models    # noqa: F401
 import app.workflow.models  # noqa: F401
 import app.alarms.models    # noqa: F401
-import app.core.preferences  # noqa: F401  — registers UserPreferences on Base.metadata
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

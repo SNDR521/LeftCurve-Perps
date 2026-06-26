@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, Depends, Query
 import httpx
@@ -220,7 +221,7 @@ async def search_instruments(
 
     # --- Bybit (cached) ---
     try:
-        _load_bybit_cache()
+        await asyncio.to_thread(_load_bybit_cache)  # sync httpx off the event loop
         q_lower = q.lower()
         for item in _bybit_cache:
             if q_lower in item["symbol"].lower() or q_lower in item["label"].lower():
