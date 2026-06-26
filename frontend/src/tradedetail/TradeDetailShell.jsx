@@ -335,20 +335,21 @@ export default function TradeDetailShell({ adapter, id }) {
         <div key={section.key}>{section.render(data)}</div>
       ))}
 
+      {/* Tab bar — above the grid so the right rail (Tags/Quick stats) top-aligns
+          with the content card, not the tab strip */}
+      <div className="flex gap-0.5 bg-[#1e2024] border border-[#2a2c30] rounded-lg p-0.5 w-fit mb-4">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+              activeTab === t.key ? 'bg-[#2a2c30] text-white' : 'text-[#4e5166] hover:text-[#8d91a6]'
+            }`}>{t.label}</button>
+        ))}
+      </div>
+
       {/* ── Two-column layout ───────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left: tabs (2/3 width) */}
+        {/* Left: tab content (2/3 width) */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Tab bar */}
-          <div className="flex gap-0.5 bg-[#1e2024] border border-[#2a2c30] rounded-lg p-0.5 w-fit">
-            {tabs.map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)}
-                className={`px-4 py-1.5 rounded-md text-[12px] font-medium transition-all ${
-                  activeTab === t.key ? 'bg-[#2a2c30] text-white' : 'text-[#4e5166] hover:text-[#8d91a6]'
-                }`}>{t.label}</button>
-            ))}
-          </div>
-
           {activeTab === 'journal' && (
             <div className="card p-5 space-y-4">
               <div>
