@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchEquityNews, fetchCryptoNews, fetchTickerQuotes } from '../lib/api'
+import { fetchEquityNews, fetchCryptoNews, fetchSquawk, fetchTickerQuotes } from '../lib/api'
 import { ExternalLink, RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 // Yahoo-compatible symbols (the /quotes endpoint is Yahoo-only): ^VIX for the
@@ -114,7 +114,15 @@ function WatchlistPanel() {
 }
 
 export default function News() {
-  const [tab, setTab] = useState('equity')
+  const [tab, setTab] = useState('squawk')
+
+  const squawkQ = useQuery({
+    queryKey: ['news-squawk'],
+    queryFn: () => fetchSquawk(60),
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+    enabled: tab === 'squawk',
+  })
 
   const equityQ = useQuery({
     queryKey: ['news-equity'],
@@ -132,8 +140,9 @@ export default function News() {
     enabled: tab === 'crypto',
   })
 
-  const active = tab === 'equity' ? equityQ : cryptoQ
-  const news = active.data || []
+  const active = tab === 'squawk' ? squawkQ : tab === 'equity' ? equityQ : cryptoQ
+  const news = (active.data || []).map(item =>
+    tab === 'squawk' ? { ...item, source: item.source || 'FinancialJuice' } : item)
   const lastUpdated = active.dataUpdatedAt
 
   const [now, setNow] = useState(Date.now())
@@ -159,6 +168,7 @@ export default function News() {
           {active.isFetching && <RefreshCw className="w-4 h-4 text-[#4e5166] animate-spin" />}
           <div className="flex bg-[#1a1b1e] border border-[#2a2c30] rounded-lg p-0.5">
             {[
+              { key: 'squawk', label: 'Squawk' },
               { key: 'equity', label: 'Equity' },
               { key: 'crypto', label: 'Crypto' },
             ].map(({ key, label }) => (
@@ -189,7 +199,11 @@ export default function News() {
             </div>
           )}
           {!active.isLoading && news.length === 0 && (
-            <div className="text-[13px] text-[#4e5166] text-center py-16">No news available</div>
+            <div className="text-[13px] text-[#4e5166] text-center py-16">
+              {tab === 'squawk'
+                ? 'No squawk headlines right now'
+                : 'No news — set FINNHUB_API_KEY (free at finnhub.io) in backend/.env to enable equity & crypto news.'}
+            </div>
           )}
           {news.map(item => (
             <NewsCard key={item.id} item={item} type={tab} />
