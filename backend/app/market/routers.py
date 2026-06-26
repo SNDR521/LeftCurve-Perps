@@ -14,6 +14,41 @@ router = APIRouter(prefix="/market", tags=["market"])
 
 FINNHUB_BASE = "https://finnhub.io/api/v1"
 
+import time
+
+# Bybit linear instruments cache — refreshed at most once per hour
+_bybit_cache: list[dict] = []
+_bybit_cache_ts: float = 0.0
+_BYBIT_CACHE_TTL = 3600  # seconds
+_YAHOO_ALLOWED_TYPES = {"EQUITY", "ETF", "INDEX", "FUTURE", "CURRENCY", "CRYPTOCURRENCY"}
+
+
+def _load_bybit_cache() -> None:
+    """Fetch Bybit linear instruments and populate module-level cache. No-op if cache is fresh."""
+    global _bybit_cache, _bybit_cache_ts
+    if time.time() - _bybit_cache_ts < _BYBIT_CACHE_TTL:
+        return
+    try:
+        r = httpx.get(
+            "https://api.bybit.com/v5/market/instruments-info",
+            params={"category": "linear"},
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        items = r.json().get("result", {}).get("list", [])
+        _bybit_cache = [
+            {
+                "symbol": item["symbol"],
+                "label": item.get("baseCoin", item["symbol"]),
+                "source": "bybit",
+                "type": "PERP",
+            }
+            for item in items
+        ]
+        _bybit_cache_ts = time.time()
+    except Exception as exc:  # noqa: BLE001 — never let a cache miss 500 the endpoint
+        log.warning("bybit instrument cache refresh failed: %s", exc)
+
 TICKER_BAR_SYMBOLS = [
     # Futures/indices a CFD trader actually tracks (all served via Yahoo);
     # crypto is NOT here — the banner streams it live from Bybit's WebSocket.
@@ -144,3 +179,53 @@ async def get_squawk(limit: int = Query(default=50), user: User = Depends(get_cu
         results.append({"id": guid, "headline": headline, "url": url, "datetime": ts})
 
     return results
+
+
+@router.get("/search")
+async def search_instruments(
+    q: str = Query(default=""),
+    user: User = Depends(get_current_user),
+):
+    """Search Yahoo Finance + Bybit for instruments matching *q*.
+
+    Returns up to 20 results merged from both sources.  Empty *q* -> [].
+    Each upstream failure is isolated; the other source still contributes.
+    """
+    if not q or not q.strip():
+        return []
+
+    results: list[dict] = []
+
+    # --- Yahoo Finance ---
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            r = await client.get(
+                "https://query1.finance.yahoo.com/v1/finance/search",
+                params={"q": q},
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+        quotes = r.json().get("quotes", [])
+        for item in quotes:
+            qt = item.get("quoteType", "")
+            if qt not in _YAHOO_ALLOWED_TYPES:
+                continue
+            results.append({
+                "symbol": item.get("symbol", ""),
+                "label": item.get("shortname") or item.get("longname") or item.get("symbol", ""),
+                "source": "yahoo",
+                "type": qt,
+            })
+    except Exception as exc:  # noqa: BLE001 — one upstream must not 500 the endpoint
+        log.warning("yahoo search failed for %r: %s", q, exc)
+
+    # --- Bybit (cached) ---
+    try:
+        _load_bybit_cache()
+        q_lower = q.lower()
+        for item in _bybit_cache:
+            if q_lower in item["symbol"].lower() or q_lower in item["label"].lower():
+                results.append(item)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("bybit search failed for %r: %s", q, exc)
+
+    return results[:20]

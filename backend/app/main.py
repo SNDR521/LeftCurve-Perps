@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.core.auth import router as core_auth_router
+from app.core.preferences import router as preferences_router
 from app.market.routers import router as market_router
 from app.perps.routers import (
     exchange_accounts as perps_accounts, fills as perps_fills,
@@ -31,6 +32,7 @@ screenshots_dir = Path("screenshots"); screenshots_dir.mkdir(exist_ok=True)
 app.mount("/screenshots", StaticFiles(directory="screenshots"), name="screenshots")
 
 app.include_router(core_auth_router)
+app.include_router(preferences_router, prefix="/api")
 app.include_router(market_router, prefix="/api")
 
 PERPS = "/api/perps"
