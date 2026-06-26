@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -50,11 +50,25 @@ const PERPS_FETCHERS = {
   fetchEquity: fetchPerpsEquity,
 }
 
+const PERPS_PERIOD_KEY = 'leftcurve_perps_period'
+
 export default function PerpsDashboard() {
-  const { prefs } = usePreferences()
-  const [periodState, setPeriodState] = useState(() => loadPeriod('leftcurve_perps_period', prefs.default_period || 'all'))
+  const { prefs, prefsLoaded } = usePreferences()
+  const [periodState, setPeriodState] = useState(() => loadPeriod(PERPS_PERIOD_KEY, prefs.default_period || 'all'))
   const { period, custom } = periodState
-  const onPeriodChange = (next) => { setPeriodState(next); savePeriod('leftcurve_perps_period', next.period, next.custom) }
+  const onPeriodChange = (next) => { setPeriodState(next); savePeriod(PERPS_PERIOD_KEY, next.period, next.custom) }
+
+  // Prefs load asynchronously. On a fresh browser (no saved period), apply the
+  // user's preferred default_period once prefs arrive. The once-guard ensures a
+  // mid-session period change is never clobbered.
+  const appliedDefault = useRef(false)
+  useEffect(() => {
+    if (!prefsLoaded || appliedDefault.current) return
+    appliedDefault.current = true
+    if (localStorage.getItem(PERPS_PERIOD_KEY)) return
+    const dp = prefs.default_period
+    if (dp) setPeriodState(prev => ({ ...prev, period: dp }))
+  }, [prefsLoaded, prefs.default_period])
   const { perpsAccountId } = useAccount()
   const queryParams = useMemo(
     () => ({ ...getDateRange(period, custom), ...(perpsAccountId && { account_id: perpsAccountId }) }),

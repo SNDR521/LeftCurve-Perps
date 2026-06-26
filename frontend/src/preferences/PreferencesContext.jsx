@@ -15,15 +15,15 @@ const DEFAULT_PREFS = {
   },
   default_period: 'all',
   pnl_view: 'dollars',
-  landing: { path: '/dashboard' },
+  landing: { path: '/' },
   theme: { accent: '#38bdf8', density: 'comfortable' },
 }
 
-const PreferencesCtx = createContext({ prefs: DEFAULT_PREFS, updatePrefs: () => {} })
+const PreferencesCtx = createContext({ prefs: DEFAULT_PREFS, updatePrefs: () => {}, prefsLoaded: false })
 
 export function PreferencesProvider({ children }) {
   const qc = useQueryClient()
-  const { data } = useQuery({
+  const { data, isSuccess } = useQuery({
     queryKey: ['preferences'],
     queryFn: fetchPreferences,
     staleTime: 5 * 60_000,
@@ -53,7 +53,7 @@ export function PreferencesProvider({ children }) {
   }
 
   return (
-    <PreferencesCtx.Provider value={{ prefs, updatePrefs }}>
+    <PreferencesCtx.Provider value={{ prefs, updatePrefs, prefsLoaded: isSuccess }}>
       {children}
     </PreferencesCtx.Provider>
   )

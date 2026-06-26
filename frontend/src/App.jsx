@@ -30,11 +30,13 @@ function RequireAuth({ children }) {
   return children
 }
 
-// Redirects from '/' to the user's preferred landing page.
-// Only fires when the user navigates to exactly '/'. Deep links pass through unchanged.
+// At '/', either show the dashboard directly (default) or redirect to the
+// user's preferred landing page. Rendering PerpsDashboard for a '/' or empty
+// target avoids a self-redirect loop. Deep links never reach this component.
 function LandingRedirect() {
   const { prefs } = usePreferences()
-  const target = prefs?.landing?.path || '/dashboard'
+  const target = prefs?.landing?.path
+  if (!target || target === '/') return <PerpsDashboard />
   return <Navigate to={target} replace />
 }
 
@@ -46,7 +48,6 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<RequireAuth><PreferencesProvider><Layout /></PreferencesProvider></RequireAuth>}>
             <Route path="/" element={<LandingRedirect />} />
-            <Route path="/dashboard" element={<PerpsDashboard />} />
             <Route path="/cockpit" element={<PerpsCockpit />} />
             <Route path="/trades" element={<PerpsPositions />} />
             <Route path="/trades/:id" element={<PerpsPositionDetail />} />

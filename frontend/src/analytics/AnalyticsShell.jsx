@@ -1,15 +1,27 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import PeriodSelector from '../dashboard/PeriodSelector'
 import { getDateRange, loadPeriod, savePeriod } from '../dashboard/period'
 import { usePreferences } from '../preferences/PreferencesContext'
 
 export default function AnalyticsShell({ adapter }) {
   const accountParams = adapter.useAccountParams()
-  const { prefs } = usePreferences()
+  const { prefs, prefsLoaded } = usePreferences()
   const init = useMemo(() => loadPeriod(adapter.storageKey, prefs.default_period || 'all'), [adapter.storageKey, prefs.default_period])
   const [period, setPeriod] = useState(init.period)
   const [custom, setCustom] = useState(init.custom)
   const [activeKey, setActiveKey] = useState(adapter.tabs[0].key)
+
+  // Prefs load asynchronously. On a fresh browser (no saved period), apply the
+  // user's preferred default_period once prefs arrive. The once-guard ensures a
+  // mid-session period change is never clobbered.
+  const appliedDefault = useRef(false)
+  useEffect(() => {
+    if (!prefsLoaded || appliedDefault.current) return
+    appliedDefault.current = true
+    if (localStorage.getItem(adapter.storageKey)) return
+    const dp = prefs.default_period
+    if (dp) setPeriod(dp)
+  }, [prefsLoaded, prefs.default_period, adapter.storageKey])
 
   // PeriodSelector emits a single { period, custom } object.
   function onPeriodChange({ period: p, custom: c }) {

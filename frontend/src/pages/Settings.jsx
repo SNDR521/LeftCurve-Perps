@@ -56,7 +56,7 @@ const PERIODS_LIST = [
 ]
 
 const PAGE_OPTIONS = [
-  { value: '/dashboard', label: 'Dashboard' },
+  { value: '/', label: 'Dashboard' },
   { value: '/cockpit', label: 'Cockpit' },
   { value: '/trades', label: 'Trade Log' },
   { value: '/reports', label: 'Analytics' },
@@ -71,11 +71,12 @@ function AppearanceSection() {
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
   const searchRef = useRef(null)
+  const timerRef = useRef(null)
 
   // Debounced instrument search
   useEffect(() => {
     if (!searchQ.trim()) { setSearchResults([]); return }
-    const tid = setTimeout(async () => {
+    timerRef.current = setTimeout(async () => {
       setSearching(true)
       try {
         const res = await searchInstruments(searchQ)
@@ -83,8 +84,11 @@ function AppearanceSection() {
       } catch { setSearchResults([]) }
       finally { setSearching(false) }
     }, 250)
-    return () => clearTimeout(tid)
+    return () => clearTimeout(timerRef.current)
   }, [searchQ])
+
+  // Ensure the pending debounce timer is cleared on unmount.
+  useEffect(() => () => clearTimeout(timerRef.current), [])
 
   function toggleEnabled(enabled) {
     updatePrefs({ ticker_bar: { ...tickerBar, enabled } })
@@ -270,7 +274,7 @@ function AppearanceSection() {
         <p className="text-[13px] text-[#e2e4ef]">Default landing page</p>
         <p className="text-[11px] text-[#4e5166]">Where to land after login (deep links always work)</p>
         <select
-          value={prefs.landing?.path || '/dashboard'}
+          value={prefs.landing?.path || '/'}
           onChange={e => updatePrefs({ landing: { path: e.target.value } })}
           className="input text-[12px] py-1.5"
         >
