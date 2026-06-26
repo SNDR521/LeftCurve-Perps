@@ -26,8 +26,8 @@ Self-hosted perpetuals trading journal for Bybit and Hyperliquid.
 ## Quickstart — Docker (recommended)
 
 ```bash
-git clone https://github.com/your-org/leftcurve-perps.git
-cd leftcurve-perps
+git clone https://github.com/SNDR521/LeftCurve-Perps.git
+cd LeftCurve-Perps
 cp backend/.env.example backend/.env
 ```
 

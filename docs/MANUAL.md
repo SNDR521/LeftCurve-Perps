@@ -71,8 +71,8 @@ Works on your local machine or a VPS. The entire stack — API, database migrati
 ### Step 1 — Clone the repo
 
 ```bash
-git clone https://github.com/your-org/leftcurve-perps.git
-cd leftcurve-perps
+git clone https://github.com/SNDR521/LeftCurve-Perps.git
+cd LeftCurve-Perps
 ```
 
 ### Step 2 — Create your environment file
@@ -231,8 +231,8 @@ Full installation docs: https://docs.docker.com/engine/install/ubuntu/
 ### 5.3 — Clone and configure
 
 ```bash
-git clone https://github.com/your-org/leftcurve-perps.git
-cd leftcurve-perps
+git clone https://github.com/SNDR521/LeftCurve-Perps.git
+cd LeftCurve-Perps
 cp backend/.env.example backend/.env
 ```
 
@@ -312,7 +312,7 @@ Do **not** expose port 3000 or 8000 publicly when running behind a reverse proxy
 ### 5.8 — Updating
 
 ```bash
-cd leftcurve-perps
+cd LeftCurve-Perps
 git pull
 docker compose up -d --build
 ```
@@ -510,7 +510,7 @@ The service name `api` matches the service defined in `docker-compose.yml`. The 
 ### Docker
 
 ```bash
-cd leftcurve-perps
+cd LeftCurve-Perps
 git pull
 docker compose up -d --build
 ```
@@ -520,7 +520,7 @@ Database migrations are applied automatically on startup. No manual migration st
 ### Manual install
 
 ```bash
-cd leftcurve-perps
+cd LeftCurve-Perps
 git pull
 
 # Backend
