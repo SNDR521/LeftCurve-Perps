@@ -105,30 +105,25 @@ function DisciplineCurve({ adherence }) {
   )
 }
 
-function FlaggedTrades({ flagged }) {
-  if (!flagged || flagged.length === 0) return null
+// Small trade card reused for best + worst highlights
+function TradeCard({ t, tone }) {
+  const borderColor = tone === 'win' ? 'border-[#00d4aa]' : 'border-[#de576f]'
   return (
-    <div className="card overflow-hidden">
-      <div className="px-5 py-3 border-b border-[#2a2c30]">
-        <h2 className="text-[13px] font-semibold text-[#e2e4ef]">Flagged trades</h2>
+    <Link
+      to={`/trades/${t.id}`}
+      className={`block card border ${borderColor} px-3 py-2 hover:bg-[#242629] transition-colors min-w-0`}
+    >
+      <div className="flex items-center gap-2 justify-between">
+        <span className="text-[12px] font-semibold text-white truncate">{t.symbol}</span>
+        <span className={`text-[12px] font-mono font-semibold ${pnlColor(t.pnl)}`}>{signedUsd(t.pnl)}</span>
+        <span className="text-[11px] font-mono text-[#8d91a6] shrink-0">
+          {t.r != null ? `${Number(t.r) >= 0 ? '+' : ''}${Number(t.r).toFixed(2)}R` : '—'}
+        </span>
       </div>
-      <div className="divide-y divide-[#2a2c30]/50">
-        {flagged.map((t, i) => {
-          const to = `/trades/${t.id}`
-          return (
-            <Link key={i} to={to}
-              className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#242629] transition-colors">
-              <span className="text-[13px] font-medium text-white w-28 truncate">{t.symbol}</span>
-              <span className="flex-1" />
-              <span className={`text-[13px] font-mono font-semibold ${pnlColor(t.pnl)}`}>{signedUsd(t.pnl)}</span>
-              <span className="text-[12px] font-mono text-[#8d91a6] w-16 text-right">
-                {t.r != null ? `${Number(t.r) >= 0 ? '+' : ''}${Number(t.r).toFixed(2)}R` : '—'}
-              </span>
-            </Link>
-          )
-        })}
-      </div>
-    </div>
+      {t.setup && (
+        <div className="text-[10px] text-[#4e5166] mt-0.5 truncate">{t.setup}</div>
+      )}
+    </Link>
   )
 }
 
@@ -173,6 +168,84 @@ function DemonFinder({ demons }) {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+// Collapsible full trade list
+function AllTradesList({ trades }) {
+  const [open, setOpen] = useState(false)
+  const [sortByDate, setSortByDate] = useState(false)
+
+  if (!trades || trades.length === 0) return null
+
+  const displayed = sortByDate
+    ? [...trades].sort((a, b) => {
+        if (!a.date && !b.date) return 0
+        if (!a.date) return 1
+        if (!b.date) return -1
+        return a.date.localeCompare(b.date)
+      })
+    : trades // already sorted pnl asc from server
+
+  return (
+    <div className="card overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-[#242629] transition-colors"
+      >
+        <span className="text-[13px] font-semibold text-[#e2e4ef]">
+          {open ? '▾' : '▸'} All {trades.length} trades
+        </span>
+        {open && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setSortByDate((v) => !v) }}
+            className="text-[11px] text-[#4e5166] hover:text-[#8d91a6] transition-colors px-2 py-0.5 rounded border border-[#2a2c30]"
+          >
+            Sort by {sortByDate ? 'P&L' : 'date'}
+          </button>
+        )}
+      </button>
+      {open && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-[#2a2c30]">
+                <th className="text-left px-5 py-2 text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em]">Symbol</th>
+                <th className="text-right px-3 py-2 text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em]">P&L</th>
+                <th className="text-right px-3 py-2 text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em]">R</th>
+                <th className="text-left px-3 py-2 text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em]">Date</th>
+                <th className="text-left px-3 py-2 text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em]">Setup</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2a2c30]/50">
+              {displayed.map((t) => {
+                const isWin = t.pnl > 0
+                return (
+                  <tr key={t.id}
+                    className={`hover:bg-[#242629] transition-colors ${!isWin ? 'bg-[#de576f]/5' : ''}`}>
+                    <td className="px-5 py-2">
+                      <Link to={`/trades/${t.id}`}
+                        className="font-medium text-white hover:text-[#38bdf8] transition-colors flex items-center gap-1.5">
+                        {!isWin && <span className="text-[#de576f] text-[10px]">⚑</span>}
+                        {t.symbol}
+                      </Link>
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono font-semibold ${pnlColor(t.pnl)}`}>
+                      {signedUsd(t.pnl)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-[#8d91a6]">
+                      {t.r != null ? `${Number(t.r) >= 0 ? '+' : ''}${Number(t.r).toFixed(2)}R` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-[#8d91a6]">{t.date || '—'}</td>
+                    <td className="px-3 py-2 text-[#8d91a6] max-w-[120px] truncate">{t.setup || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -237,6 +310,17 @@ export default function Reviews() {
   const stats = draft?.stats || {}
   const period = draft?.period
 
+  // Derived trade lists from the full sorted (pnl asc) trades array
+  const trades = draft?.trades || []
+  const brightSpots = draft?.bright_spots || {}
+
+  // best-3: winners sorted by pnl desc, take 3
+  const best3 = [...trades].filter((t) => t.pnl > 0).sort((a, b) => b.pnl - a.pnl).slice(0, 3)
+  // worst-3: losers (pnl asc already), take 3
+  const worst3 = trades.filter((t) => t.pnl < 0).slice(0, 3)
+
+  const hasBrightSpots = brightSpots.best_symbol != null || brightSpots.best_setup != null
+
   const header = (
     <div className="flex items-center justify-between flex-wrap gap-4">
       <div className="flex items-center gap-3">
@@ -273,18 +357,68 @@ export default function Reviews() {
         <div className="card p-16 flex items-center justify-center text-[#4e5166] text-sm">Loading…</div>
       ) : (
         <>
-          {/* Stat row — scoped to the active workspace */}
+          {/* Stats row */}
           <div className="card p-4 flex flex-wrap items-start gap-x-8 gap-y-4">
             <Stat label="Trades" value={stats.total_trades ?? 0} />
             <Stat label="P&L" value={signedUsd(stats.total_pnl)} color={pnlColor(stats.total_pnl)} />
             <Stat label="Win %" value={stats.win_rate != null ? `${Number(stats.win_rate).toFixed(1)}%` : '—'} />
           </div>
 
+          {/* Discipline curve */}
           <DisciplineCurve adherence={draft?.adherence} />
 
-          <FlaggedTrades flagged={draft?.flagged} />
+          {/* What worked zone */}
+          <div className="space-y-3">
+            <h2 className="text-[13px] font-semibold text-[#00d4aa] uppercase tracking-[0.06em]">What worked</h2>
 
-          <DemonFinder demons={draft?.demons} />
+            {/* Best-3 trade cards */}
+            {best3.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {best3.map((t) => <TradeCard key={t.id} t={t} tone="win" />)}
+              </div>
+            )}
+            {best3.length === 0 && (
+              <div className="text-[12px] text-[#4e5166]">no winning trades this period</div>
+            )}
+
+            {/* Bright-spots summary line */}
+            {hasBrightSpots && (
+              <div className="text-[12px] text-[#8d91a6] flex flex-wrap gap-x-4 gap-y-1">
+                {brightSpots.best_setup && (
+                  <span>
+                    Best setup: <span className="text-[#00d4aa] font-semibold">{brightSpots.best_setup.name}</span>{' '}
+                    <span className="text-[#00d4aa]">{signedUsd(brightSpots.best_setup.pnl)}</span>
+                  </span>
+                )}
+                {brightSpots.best_symbol && (
+                  <span>
+                    Best symbol: <span className="text-[#00d4aa] font-semibold">{brightSpots.best_symbol.name}</span>{' '}
+                    <span className="text-[#00d4aa]">{signedUsd(brightSpots.best_symbol.pnl)}</span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Needs work zone */}
+          <div className="space-y-3">
+            <h2 className="text-[13px] font-semibold text-[#de576f] uppercase tracking-[0.06em]">Needs work</h2>
+
+            {/* Worst-3 trade cards */}
+            {worst3.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {worst3.map((t) => <TradeCard key={t.id} t={t} tone="loss" />)}
+              </div>
+            )}
+            {worst3.length === 0 && (
+              <div className="text-[12px] text-[#4e5166]">no losing trades this period</div>
+            )}
+
+            <DemonFinder demons={draft?.demons} />
+          </div>
+
+          {/* All N trades collapsible */}
+          <AllTradesList trades={trades} />
 
           {draft?.days_without_card > 0 && (
             <div className="text-[12px] text-[#8d91a6]">

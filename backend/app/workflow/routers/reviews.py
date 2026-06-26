@@ -64,32 +64,93 @@ def _overview_keys(metrics) -> dict:
     }
 
 
-# ── flagged trades ────────────────────────────────────────────────────────────
+# ── all trades ───────────────────────────────────────────────────────────────
 
-def _flagged(db: Session, user_id: int, start_dt: datetime, end_dt: datetime,
-             workspace: str, limit: int = 3) -> list[dict]:
-    """The ``limit`` worst perps positions of the period.
+def _period_trades(db: Session, user_id: int, start_dt: datetime,
+                   end_dt: datetime) -> list[dict]:
+    """ALL closed perps positions in the window, sorted by pnl ascending (worst first).
 
-    Ranked by realized P&L ascending (most negative first); ``r`` carries the
-    R-multiple when known. ``workspace`` is accepted for API compatibility but
-    only perps data is returned.
+    Attaches ``setup`` from PerpsJournal and ``date`` as an ISO date string.
     """
-    perps = (db.query(PerpsPosition)
-             .filter(PerpsPosition.user_id == user_id,
-                     PerpsPosition.status == PositionStatus.CLOSED,
-                     PerpsPosition.closed_at >= start_dt,
-                     PerpsPosition.closed_at < end_dt).all())
-    rows: list[dict] = []
-    for p in perps:
-        rows.append({
-            "workspace": "perps",
+    positions = (db.query(PerpsPosition)
+                 .filter(PerpsPosition.user_id == user_id,
+                         PerpsPosition.status == PositionStatus.CLOSED,
+                         PerpsPosition.closed_at >= start_dt,
+                         PerpsPosition.closed_at < end_dt).all())
+    keys = [p.position_key for p in positions if p.position_key]
+    jmap: dict = {}
+    if keys:
+        rows = db.query(PerpsJournal).filter(
+            PerpsJournal.user_id == user_id,
+            PerpsJournal.position_key.in_(keys)).all()
+        jmap = {j.position_key: j for j in rows}
+
+    result: list[dict] = []
+    for p in positions:
+        j = jmap.get(p.position_key) if p.position_key else None
+        result.append({
             "id": p.id,
             "symbol": (p.symbol or "").upper(),
             "pnl": p.realized_pnl or 0.0,
             "r": p.r_multiple,
+            "date": p.closed_at.date().isoformat() if p.closed_at else None,
+            "setup": (j.setup_name if j else None),
         })
-    rows.sort(key=lambda x: x["pnl"])  # worst (most negative) first
-    return rows[:limit]
+    result.sort(key=lambda x: x["pnl"])  # worst (most negative) first
+    return result
+
+
+# ── bright spots (positive inverse of demon finder) ───────────────────────────
+
+def compute_bright_spots(db, user_id: int, start_dt: datetime,
+                         end_dt: datetime) -> dict:
+    """Aggregate net realized_pnl by symbol and by setup over the period.
+
+    Returns the single highest net-positive group per dimension.  Groups that
+    are net-negative (or zero) are excluded — ``None`` is returned for a
+    dimension when no group is net-positive.  ``best_setup`` ignores positions
+    that carry no setup.
+    """
+    positions = (db.query(PerpsPosition)
+                 .filter(PerpsPosition.user_id == user_id,
+                         PerpsPosition.status == PositionStatus.CLOSED,
+                         PerpsPosition.closed_at >= start_dt,
+                         PerpsPosition.closed_at < end_dt).all())
+    keys = [p.position_key for p in positions if p.position_key]
+    jmap: dict = {}
+    if keys:
+        rows = db.query(PerpsJournal).filter(
+            PerpsJournal.user_id == user_id,
+            PerpsJournal.position_key.in_(keys)).all()
+        jmap = {j.position_key: j for j in rows}
+
+    sym_agg: dict = {}   # symbol -> [pnl_sum, count]
+    setup_agg: dict = {}  # setup_name -> [pnl_sum, count]
+    for p in positions:
+        pnl = p.realized_pnl or 0.0
+        sym = (p.symbol or "").upper()
+        s = sym_agg.setdefault(sym, [0.0, 0])
+        s[0] += pnl
+        s[1] += 1
+
+        j = jmap.get(p.position_key) if p.position_key else None
+        setup = j.setup_name if j and j.setup_name else None
+        if setup:
+            t = setup_agg.setdefault(setup, [0.0, 0])
+            t[0] += pnl
+            t[1] += 1
+
+    def _best(agg: dict):
+        positives = [(name, vals) for name, vals in agg.items() if vals[0] > 0]
+        if not positives:
+            return None
+        name, vals = max(positives, key=lambda x: x[1][0])
+        return {"name": name, "pnl": round(vals[0], 2), "count": vals[1]}
+
+    return {
+        "best_symbol": _best(sym_agg),
+        "best_setup": _best(setup_agg),
+    }
 
 
 # ── demons (recurring mistakes) ───────────────────────────────────────────────
@@ -227,7 +288,8 @@ def review_draft(type: str = Query(...),
             "rate_pct": rate_pct,
             "per_day": per_day,
         },
-        "flagged": _flagged(db, user.id, start_dt, end_dt, ws),
+        "trades": _period_trades(db, user.id, start_dt, end_dt),
+        "bright_spots": compute_bright_spots(db, user.id, start_dt, end_dt),
         "days_without_card": days_without_card,
         "demons": compute_demons(db, user.id, start_dt, end_dt, ws),
     }

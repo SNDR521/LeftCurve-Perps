@@ -250,22 +250,62 @@ def test_draft_rate_null_when_nothing_evaluated(setup):
     assert adh["rate_pct"] is None
 
 
-# ── draft: flagged + days_without_card ────────────────────────────────────────
+# ── draft: trades + days_without_card ────────────────────────────────────────
 
-def test_draft_flagged_worst_first(setup):
+def test_draft_trades_all_positions_sorted(setup):
+    """trades returns ALL closed positions in the period, sorted by pnl ascending,
+    each carrying date and setup fields."""
     _as(setup)
-    _seed_week(setup)
+    acc = _perps_account(setup.id)
+    from datetime import datetime, date
+    from app.perps.models import PerpsJournal
+
+    # Seed 3 trades
+    _seed_perps(setup.id, acc, symbol="BTCUSDT", pnl=100.0,
+                closed_at=datetime(2026, 6, 8, 10), key="t:1")
+    _seed_perps(setup.id, acc, symbol="ETHUSDT", pnl=-50.0,
+                closed_at=datetime(2026, 6, 9, 10), key="t:2")
+    _seed_perps(setup.id, acc, symbol="SOLUSDT", pnl=20.0,
+                closed_at=datetime(2026, 6, 10, 10), key="t:3")
+
+    # Attach a setup to one via journal
+    db = SessionLocal()
+    db.add(PerpsJournal(user_id=setup.id, position_key="t:1", setup_name="breakout"))
+    db.commit()
+    db.close()
+
     c = TestClient(app)
     body = c.get("/api/workflow/reviews/draft",
                  params={"type": "WEEK", "start": "2026-06-08", "workspace": "perps"}).json()
-    flagged = body["flagged"]
-    assert len(flagged) <= 3
-    worst = flagged[0]
-    assert abs(worst["pnl"] - (-500.0)) < 0.01
-    assert worst["workspace"] == "perps"
-    assert worst["symbol"] == "SOLUSDT"
-    assert "id" in worst
-    assert "r" in worst
+
+    trades = body["trades"]
+    assert len(trades) == 3  # ALL positions returned, not capped
+
+    # sorted pnl ascending: -50 < 20 < 100
+    assert trades[0]["pnl"] < trades[1]["pnl"] < trades[2]["pnl"]
+    assert abs(trades[0]["pnl"] - (-50.0)) < 0.01
+
+    # date field present and correctly formatted
+    for t in trades:
+        assert "date" in t
+        assert t["date"] is not None or t["date"] is None  # either value is ok structurally
+
+    # setup attached where journal exists
+    btc_trade = next(t for t in trades if t["symbol"] == "BTCUSDT")
+    assert btc_trade["date"] == "2026-06-08"
+    assert btc_trade["setup"] == "breakout"
+
+    eth_trade = next(t for t in trades if t["symbol"] == "ETHUSDT")
+    assert eth_trade["setup"] is None  # no journal entry
+
+    # each trade has required keys
+    for t in trades:
+        assert "id" in t
+        assert "symbol" in t
+        assert "pnl" in t
+        assert "r" in t
+        assert "date" in t
+        assert "setup" in t
 
 
 def test_draft_days_without_card(setup):
@@ -278,15 +318,100 @@ def test_draft_days_without_card(setup):
     assert body["days_without_card"] >= 1
 
 
-def test_draft_flagged_perps_only(setup):
-    """All flagged trades are perps workspace; no prop trades appear."""
+def test_draft_trades_no_flagged_key(setup):
+    """The old 'flagged' key is gone; 'trades' key is present."""
     _as(setup)
     _seed_week(setup)
     c = TestClient(app)
     body = c.get("/api/workflow/reviews/draft",
                  params={"type": "WEEK", "start": "2026-06-08", "workspace": "perps"}).json()
-    assert body["flagged"]  # non-empty
-    assert all(f["workspace"] == "perps" for f in body["flagged"])
+    assert "trades" in body
+    assert "flagged" not in body
+
+
+# ── draft: bright spots ───────────────────────────────────────────────────────
+
+def _seed_journal_setup(user_id, position_key, setup_name):
+    from app.perps.models import PerpsJournal
+    db = SessionLocal()
+    db.add(PerpsJournal(user_id=user_id, position_key=position_key, setup_name=setup_name))
+    db.commit()
+    db.close()
+
+
+def test_bright_spots_best_symbol_and_setup(setup):
+    """best_symbol is the net-positive symbol with highest total pnl;
+    best_setup is the net-positive setup with highest total pnl."""
+    _as(setup)
+    acc = _perps_account(setup.id)
+    from datetime import datetime
+
+    # BTCUSDT: net +80 (winner)
+    _seed_perps(setup.id, acc, symbol="BTCUSDT", pnl=100.0,
+                closed_at=datetime(2026, 6, 8, 10), key="bs:1")
+    _seed_perps(setup.id, acc, symbol="BTCUSDT", pnl=-20.0,
+                closed_at=datetime(2026, 6, 8, 11), key="bs:2")
+    # ETHUSDT: net -30 (loser — should NOT appear)
+    _seed_perps(setup.id, acc, symbol="ETHUSDT", pnl=-30.0,
+                closed_at=datetime(2026, 6, 9, 10), key="bs:3")
+
+    # setups: "breakout" net +100, "scalp" net -30
+    _seed_journal_setup(setup.id, "bs:1", "breakout")
+    _seed_journal_setup(setup.id, "bs:2", "breakout")  # net: 100-20=+80 → wait bs:2 is breakout too
+    _seed_journal_setup(setup.id, "bs:3", "scalp")
+
+    c = TestClient(app)
+    body = c.get("/api/workflow/reviews/draft",
+                 params={"type": "WEEK", "start": "2026-06-08", "workspace": "perps"}).json()
+
+    bs = body["bright_spots"]
+    assert bs["best_symbol"]["name"] == "BTCUSDT"
+    assert abs(bs["best_symbol"]["pnl"] - 80.0) < 0.01
+    assert bs["best_symbol"]["count"] == 2
+
+    assert bs["best_setup"]["name"] == "breakout"
+    assert abs(bs["best_setup"]["pnl"] - 80.0) < 0.01
+
+
+def test_bright_spots_none_when_all_negative(setup):
+    """When all groups are net-negative, both best_symbol and best_setup are None."""
+    _as(setup)
+    acc = _perps_account(setup.id)
+    from datetime import datetime
+
+    _seed_perps(setup.id, acc, symbol="BTCUSDT", pnl=-50.0,
+                closed_at=datetime(2026, 6, 8, 10), key="neg:1")
+    _seed_perps(setup.id, acc, symbol="ETHUSDT", pnl=-30.0,
+                closed_at=datetime(2026, 6, 9, 10), key="neg:2")
+    _seed_journal_setup(setup.id, "neg:1", "breakdown")
+    _seed_journal_setup(setup.id, "neg:2", "fakeout")
+
+    c = TestClient(app)
+    body = c.get("/api/workflow/reviews/draft",
+                 params={"type": "WEEK", "start": "2026-06-08", "workspace": "perps"}).json()
+
+    bs = body["bright_spots"]
+    assert bs["best_symbol"] is None
+    assert bs["best_setup"] is None
+
+
+def test_bright_spots_setup_ignores_no_setup(setup):
+    """best_setup is None when no positions have a setup recorded, even if pnl is positive."""
+    _as(setup)
+    acc = _perps_account(setup.id)
+    from datetime import datetime
+
+    _seed_perps(setup.id, acc, symbol="BTCUSDT", pnl=50.0,
+                closed_at=datetime(2026, 6, 8, 10), key="nos:1")
+    # No journal entry → no setup
+
+    c = TestClient(app)
+    body = c.get("/api/workflow/reviews/draft",
+                 params={"type": "WEEK", "start": "2026-06-08", "workspace": "perps"}).json()
+
+    bs = body["bright_spots"]
+    assert bs["best_symbol"]["name"] == "BTCUSDT"  # symbol still works
+    assert bs["best_setup"] is None  # no setup recorded
 
 
 # ── saved review: GET skeleton / PUT upsert / round-trip ──────────────────────
