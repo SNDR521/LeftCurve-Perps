@@ -5,6 +5,7 @@
 @layer base {
   :root {
     --accent: #38bdf8;
+    --accent-rgb: 56 189 248;
   }
   * {
     scrollbar-width: thin;
@@ -29,6 +30,7 @@
   }
   /* ── Density ──────────────────────────────── */
   :root[data-density="compact"] .card { padding: 12px !important; }
+  :root[data-density="compact"] .stat-card { padding: 12px !important; }
   :root[data-density="compact"] .rows-table tbody tr td { padding: 6px 10px; }
   :root[data-density="compact"] .rows-table thead th { padding: 2px 10px 6px; }
 

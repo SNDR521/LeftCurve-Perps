@@ -152,7 +152,7 @@ export default function Playbooks() {
   const header = (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <BookOpen className="w-5 h-5 text-[#38bdf8]" />
+        <BookOpen className="w-5 h-5 text-[var(--accent)]" />
         <div>
           <h1 className="text-[22px] font-semibold text-white">Playbooks</h1>
           <p className="text-[13px] text-[#4e5166] mt-0.5">your edge on paper</p>
@@ -194,7 +194,7 @@ export default function Playbooks() {
                     management: pb.management || '',
                     notes: pb.notes || '',
                   })}
-                    className="p-1.5 rounded-lg text-[#4e5166] hover:text-[#38bdf8] hover:bg-[#242629] transition-colors">
+                    className="p-1.5 rounded-lg text-[#4e5166] hover:text-[var(--accent)] hover:bg-[#242629] transition-colors">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => onDelete(pb)}

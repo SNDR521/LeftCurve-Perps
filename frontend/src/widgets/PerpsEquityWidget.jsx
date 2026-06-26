@@ -15,7 +15,7 @@ function RealizedChart({ data }) {
         <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#4e5166' }} />
         <YAxis tick={{ fontSize: 10, fill: '#4e5166' }} width={48} />
         <Tooltip contentStyle={{ background: '#1e2024', border: '1px solid #2a2c30', fontSize: 12 }} />
-        <Area type="monotone" dataKey="equity" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.15} />
+        <Area type="monotone" dataKey="equity" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.15} />
       </AreaChart>
     </ResponsiveContainer>
   )
@@ -71,7 +71,7 @@ export default function PerpsEquityWidget() {
                   strokeDasharray="3 3"
                 />
               ))}
-              <Area type="monotone" dataKey="balance" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.15} />
+              <Area type="monotone" dataKey="balance" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.15} />
             </AreaChart>
           </ResponsiveContainer>
         ) : (

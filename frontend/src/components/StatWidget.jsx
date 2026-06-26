@@ -13,10 +13,10 @@ export default function StatWidget({ label, value, format = 'text', icon: Icon, 
         </p>
         {Icon && (
           <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-            isPositive ? 'bg-[#00d4aa]/10' : isNegative ? 'bg-[#de576f]/10' : 'bg-[#38bdf8]/10'
+            isPositive ? 'bg-[#00d4aa]/10' : isNegative ? 'bg-[#de576f]/10' : 'bg-[rgb(var(--accent-rgb)/0.1)]'
           }`}>
             <Icon className={`w-3.5 h-3.5 ${
-              isPositive ? 'text-[#00d4aa]' : isNegative ? 'text-[#de576f]' : 'text-[#38bdf8]'
+              isPositive ? 'text-[#00d4aa]' : isNegative ? 'text-[#de576f]' : 'text-[var(--accent)]'
             }`} />
           </div>
         )}

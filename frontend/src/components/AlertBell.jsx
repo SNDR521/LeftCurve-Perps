@@ -141,7 +141,7 @@ export default function AlertBell() {
                 alerts.map(a => (
                   <div
                     key={a.id}
-                    className={`px-3 py-2 border-b border-[#242629] last:border-b-0 ${a.seen ? '' : 'bg-[#38bdf8]/5'}`}
+                    className={`px-3 py-2 border-b border-[#242629] last:border-b-0 ${a.seen ? '' : 'bg-[rgb(var(--accent-rgb)/0.05)]'}`}
                   >
                     <div className="text-[12px] text-[#e2e4ef]">{alertText(a)}</div>
                     <div className="text-[10px] text-[#4e5166] mt-0.5 truncate">{alertSub(a)}</div>
@@ -151,7 +151,7 @@ export default function AlertBell() {
             </div>
             <button
               onClick={onMarkAll}
-              className="w-full px-3 py-2 text-[11px] text-[#38bdf8] hover:bg-[#242629] transition-colors border-t border-[#2a2c30]"
+              className="w-full px-3 py-2 text-[11px] text-[var(--accent)] hover:bg-[#242629] transition-colors border-t border-[#2a2c30]"
             >
               Mark all seen
             </button>
@@ -160,10 +160,10 @@ export default function AlertBell() {
       </div>
 
       {banner && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] bg-[#1e2024] border border-[#38bdf8]/40
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] bg-[#1e2024] border border-[rgb(var(--accent-rgb)/0.4)]
                         rounded-lg shadow-xl px-4 py-2.5 flex items-center gap-2.5"
              style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-          <Bell className="w-4 h-4 text-[#38bdf8] shrink-0" />
+          <Bell className="w-4 h-4 text-[var(--accent)] shrink-0" />
           <span className="text-[12px] text-[#e2e4ef]">{banner.text}</span>
         </div>
       )}

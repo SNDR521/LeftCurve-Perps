@@ -105,7 +105,7 @@ export default function Layout() {
                   className="w-full flex items-center gap-2 px-3 py-2 bg-[#242629] border border-[#3a3c42]
                              rounded-lg text-[12px] text-left hover:border-[#4e5166] transition-colors"
                 >
-                  <Wallet className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  <Wallet className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
                   <span className="flex-1 truncate text-[#e2e4ef]">
                     {perpsAccountId
                       ? (perpsAccounts.find(a => a.id === perpsAccountId)?.label || `Account ${perpsAccountId}`)
@@ -121,7 +121,7 @@ export default function Layout() {
                     <button
                       onClick={() => { setPerpsAccountId(null); setPerpsAcctOpen(false) }}
                       className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] text-left transition-colors
-                        ${!perpsAccountId ? 'bg-[#38bdf8]/20 text-[#38bdf8]' : 'text-[#8d91a6] hover:bg-[#2a2c30]'}`}
+                        ${!perpsAccountId ? 'bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)]' : 'text-[#8d91a6] hover:bg-[#2a2c30]'}`}
                     >
                       All Accounts
                     </button>
@@ -130,7 +130,7 @@ export default function Layout() {
                         key={acc.id}
                         onClick={() => { setPerpsAccountId(acc.id); setPerpsAcctOpen(false) }}
                         className={`w-full flex items-center gap-2 px-3 py-2.5 text-[12px] text-left transition-colors
-                          ${perpsAccountId === acc.id ? 'bg-[#38bdf8]/20 text-[#38bdf8]' : 'text-[#8d91a6] hover:bg-[#2a2c30]'}`}
+                          ${perpsAccountId === acc.id ? 'bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)]' : 'text-[#8d91a6] hover:bg-[#2a2c30]'}`}
                       >
                         <div className="flex-1 min-w-0">
                           <span className="text-[#e2e4ef] truncate block">{acc.label}</span>
@@ -157,7 +157,7 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                     isActive
-                      ? 'bg-[#38bdf8]/20 text-[#38bdf8]'
+                      ? 'bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)]'
                       : 'text-[#8d91a6] hover:text-[#fcfefd] hover:bg-[#242629]'
                   }`
                 }
@@ -165,7 +165,7 @@ export default function Layout() {
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#38bdf8] rounded-r-full" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[var(--accent)] rounded-r-full" />
                     )}
                     <Icon className="w-[18px] h-[18px]" />
                     {label}
@@ -180,8 +180,8 @@ export default function Layout() {
             <div className="px-3 py-2.5 border-t border-[#2a2c30] flex items-center gap-2.5">
               {user.avatar_url
                 ? <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full shrink-0" />
-                : <div className="w-7 h-7 rounded-full bg-[#38bdf8]/20 flex items-center justify-center shrink-0">
-                    <span className="text-[11px] font-semibold text-[#38bdf8]">
+                : <div className="w-7 h-7 rounded-full bg-[rgb(var(--accent-rgb)/0.2)] flex items-center justify-center shrink-0">
+                    <span className="text-[11px] font-semibold text-[var(--accent)]">
                       {(user.name || user.email || '?')[0].toUpperCase()}
                     </span>
                   </div>

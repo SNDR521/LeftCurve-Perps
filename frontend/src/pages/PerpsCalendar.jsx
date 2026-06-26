@@ -185,7 +185,7 @@ export default function PerpsCalendar() {
                     <div
                       key={cell.date}
                       className={`relative h-[84px] rounded-lg p-2 flex flex-col transition-all duration-100 hover:brightness-125 ${
-                        cell.date === todayStr ? 'ring-1 ring-[#38bdf8]/50' : ''
+                        cell.date === todayStr ? 'ring-1 ring-[rgb(var(--accent-rgb)/0.5)]' : ''
                       }`}
                       style={cellStyle(cell.pnl)}
                       title={cell.trade_count > 0

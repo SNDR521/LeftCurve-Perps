@@ -195,7 +195,7 @@ export default function TradeDetailShell({ adapter, id }) {
               data.direction === 'LONG' ? 'bg-[#00d4aa]/10 text-[#00d4aa]' : 'bg-[#de576f]/10 text-[#de576f]'
             }`}>{data.direction}</span>
             {journal?.setup_name && (
-              <span className="badge bg-[#38bdf8]/10 text-[#38bdf8] text-[10px]">{journal.setup_name}</span>
+              <span className="badge bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] text-[10px]">{journal.setup_name}</span>
             )}
             {journal?.grade && (() => {
               const gc = GRADE_COLORS[journal.grade] || '#8d91a6'
@@ -257,7 +257,7 @@ export default function TradeDetailShell({ adapter, id }) {
               title="Upload screenshot"
               className="p-1.5 bg-[#1e2024]/90 border border-[#2a2c30] hover:bg-[#2a2c30] rounded-lg transition-colors backdrop-blur-sm"
             >
-              <Upload className={`w-3.5 h-3.5 ${uploadMutation.isPending ? 'text-[#38bdf8] animate-pulse' : 'text-[#4e5166]'}`} />
+              <Upload className={`w-3.5 h-3.5 ${uploadMutation.isPending ? 'text-[var(--accent)] animate-pulse' : 'text-[#4e5166]'}`} />
             </button>
           </div>
 
@@ -380,7 +380,7 @@ export default function TradeDetailShell({ adapter, id }) {
                       <button key={e} onClick={() => updateField('emotion_before', e)}
                         className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
                           form.emotion_before === e
-                            ? 'bg-[#38bdf8] text-white'
+                            ? 'bg-[var(--accent)] text-white'
                             : 'bg-[#2a2c30] text-[#4e5166] hover:text-[#8d91a6] hover:bg-[#2a2d3a]'
                         }`}>{e}</button>
                     ))}
@@ -393,7 +393,7 @@ export default function TradeDetailShell({ adapter, id }) {
                       <button key={e} onClick={() => updateField('emotion_after', e)}
                         className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
                           form.emotion_after === e
-                            ? 'bg-[#38bdf8] text-white'
+                            ? 'bg-[var(--accent)] text-white'
                             : 'bg-[#2a2c30] text-[#4e5166] hover:text-[#8d91a6] hover:bg-[#2a2d3a]'
                         }`}>{e}</button>
                     ))}
@@ -466,7 +466,7 @@ export default function TradeDetailShell({ adapter, id }) {
                     <button key={n} onClick={() => updateField('rating', n)}
                       className={`w-12 h-12 rounded-xl font-semibold text-sm transition-all ${
                         form.rating === n
-                          ? 'bg-[#38bdf8] text-white scale-110 shadow-lg shadow-[#38bdf8]/20'
+                          ? 'bg-[var(--accent)] text-white scale-110 shadow-lg shadow-[rgb(var(--accent-rgb)/0.2)]'
                           : 'bg-[#2a2c30] text-[#4e5166] hover:bg-[#2a2d3a] hover:text-[#8d91a6]'
                       }`}>{n}</button>
                   ))}
@@ -585,7 +585,7 @@ export default function TradeDetailShell({ adapter, id }) {
                 </div>
                 <button onClick={addTarget} disabled={pctSum >= 100}
                   className={`mt-2 flex items-center gap-1.5 text-[12px] transition-colors ${
-                    pctSum >= 100 ? 'text-[#2a2c30] cursor-not-allowed' : 'text-[#38bdf8] hover:text-[#7dd3fc]'
+                    pctSum >= 100 ? 'text-[#2a2c30] cursor-not-allowed' : 'text-[var(--accent)] hover:text-[#7dd3fc]'
                   }`}>
                   <Plus className="w-3.5 h-3.5" /> Add target
                 </button>

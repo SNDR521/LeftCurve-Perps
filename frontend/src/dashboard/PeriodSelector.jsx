@@ -7,11 +7,11 @@ export default function PeriodSelector({ period, custom, onChange }) {
   const cur = custom || { from: '', to: '' }
   const pillCls = (active) =>
     `px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
-      active ? 'bg-[#38bdf8] text-white' : 'text-[#4e5166] hover:text-[#8d91a6]'
+      active ? 'bg-[var(--accent)] text-white' : 'text-[#4e5166] hover:text-[#8d91a6]'
     }`
   const dateCls =
     'bg-[#1e2024] border border-[#2a2c30] rounded-md px-2 py-1 text-[11px] text-[#e2e4ef] ' +
-    'focus:outline-none focus:border-[#38bdf8]'
+    'focus:outline-none focus:border-[var(--accent)]'
 
   return (
     <>

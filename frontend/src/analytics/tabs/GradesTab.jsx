@@ -79,7 +79,7 @@ export default function GradesTab({ tabKey, params, fetch, normalize }) {
               <YAxis tick={{ fill: '#4e5166', fontSize: 10 }} tickFormatter={v => `$${v}`} stroke="transparent" tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1e2024', border: '1px solid #2a2c30', borderRadius: '10px', fontSize: '12px', padding: '8px 12px' }}
-                cursor={{ fill: 'rgba(56,189,248,0.05)' }}
+                cursor={{ fill: 'rgb(var(--accent-rgb)/0.05)' }}
                 formatter={v => [fmt$(v), 'Avg P&L']}
               />
               <Bar dataKey="avg_pnl" radius={[4, 4, 0, 0]} maxBarSize={60}>

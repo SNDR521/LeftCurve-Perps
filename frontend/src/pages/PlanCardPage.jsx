@@ -13,7 +13,7 @@ const BIAS_OPTIONS = ['Long', 'Short', 'Neutral']
 const BIAS_COLORS = {
   Long: 'bg-[#00d4aa] text-white',
   Short: 'bg-[#de576f] text-white',
-  Neutral: 'bg-[#38bdf8] text-white',
+  Neutral: 'bg-[var(--accent)] text-white',
 }
 
 function BiasRow({ label, value, onChange, editable }) {
@@ -163,7 +163,7 @@ function RegimeBlock({ market, snap }) {
       {themes.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {themes.map((t, i) => (
-            <span key={i} className="badge bg-[#38bdf8]/10 text-[#38bdf8] text-[10px]">
+            <span key={i} className="badge bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] text-[10px]">
               {t.theme} {t.score != null ? Number(t.score).toFixed(0) : ''}
             </span>
           ))}
@@ -287,7 +287,7 @@ function WatchlistSection({ shortlist, onAdd, editable }) {
                 onClick={() => onAdd(item.symbol)}
                 className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors
                   disabled:opacity-40 disabled:cursor-default
-                  bg-[#242629] text-[#38bdf8] hover:bg-[#38bdf8]/15"
+                  bg-[#242629] text-[var(--accent)] hover:bg-[rgb(var(--accent-rgb)/0.15)]"
               >
                 <Plus className="w-3 h-3" />
                 {inList ? 'on list' : 'shortlist'}
@@ -412,11 +412,11 @@ export default function PlanCardPage() {
   const header = (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <NotebookPen className="w-5 h-5 text-[#38bdf8]" />
+        <NotebookPen className="w-5 h-5 text-[var(--accent)]" />
         <div>
           <h1 className="text-[22px] font-semibold text-white flex items-center gap-2">
             {weekdayLabel(date)}
-            {isToday && <span className="badge bg-[#38bdf8]/15 text-[#38bdf8] text-[10px]">Today</span>}
+            {isToday && <span className="badge bg-[rgb(var(--accent-rgb)/0.15)] text-[var(--accent)] text-[10px]">Today</span>}
           </h1>
           <p className="text-[13px] text-[#4e5166] mt-0.5">two-minute commitment ritual</p>
         </div>
@@ -560,7 +560,7 @@ export default function PlanCardPage() {
               <button key={m} type="button" disabled={!editable}
                 onClick={() => setForm((f) => ({ ...f, mental_state: active ? '' : m }))}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors disabled:opacity-60 ${
-                  active ? 'bg-[#38bdf8] text-white' : 'bg-[#242629] text-[#8d91a6] hover:text-[#e2e4ef]'
+                  active ? 'bg-[var(--accent)] text-white' : 'bg-[#242629] text-[#8d91a6] hover:text-[#e2e4ef]'
                 }`}>
                 {m}
               </button>

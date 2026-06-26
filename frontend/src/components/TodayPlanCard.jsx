@@ -44,7 +44,7 @@ export default function TodayPlanCard({ workspace = 'all' }) {
         className="card px-4 py-2.5 flex items-center gap-2 text-[12px] text-[#8d91a6] hover:border-[#4e5166] transition-colors"
       >
         <span>No plan for today —</span>
-        <span className="text-[#38bdf8] font-medium">Create today's plan →</span>
+        <span className="text-[var(--accent)] font-medium">Create today's plan →</span>
       </Link>
     )
   }

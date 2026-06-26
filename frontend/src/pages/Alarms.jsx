@@ -74,7 +74,7 @@ export default function Alarms() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <BellRing className="w-5 h-5 text-[#38bdf8]" />
+          <BellRing className="w-5 h-5 text-[var(--accent)]" />
           <h1 className="text-[18px] font-semibold text-[#e2e4ef]">Alarms</h1>
         </div>
         <button
@@ -94,7 +94,7 @@ export default function Alarms() {
             onClick={() => setTab(key)}
             className={`px-4 py-1.5 text-[12px] font-medium rounded-md transition-all ${
               tab === key
-                ? 'bg-[#38bdf8] text-white'
+                ? 'bg-[var(--accent)] text-white'
                 : 'text-[#4e5166] hover:text-[#8d91a6]'
             }`}
           >
@@ -116,7 +116,7 @@ export default function Alarms() {
           <p className="text-[13px] text-[#4e5166]">No alarms here yet.</p>
           <button
             onClick={() => setDialogOpen(true)}
-            className="mt-4 text-[12px] text-[#38bdf8] hover:brightness-125 transition"
+            className="mt-4 text-[12px] text-[var(--accent)] hover:brightness-125 transition"
           >
             + New alarm
           </button>
@@ -161,12 +161,12 @@ function AlarmCard({ alarm: a, onToggle, onDelete }) {
 
           {/* Delivery marker */}
           {a.deliver?.in_app && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#38bdf8]/10 text-[#38bdf8] font-medium shrink-0">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] font-medium shrink-0">
               in-app
             </span>
           )}
           {a.deliver?.telegram && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#38bdf8]/10 text-[#38bdf8] font-medium shrink-0">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] font-medium shrink-0">
               ✈ TG
             </span>
           )}
@@ -190,7 +190,7 @@ function AlarmCard({ alarm: a, onToggle, onDelete }) {
             onToggle(turnOn ? { status: 'ACTIVE' } : { enabled: false })
           }}
           title={a.enabled && a.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-          className="text-[#4e5166] hover:text-[#38bdf8] transition-colors"
+          className="text-[#4e5166] hover:text-[var(--accent)] transition-colors"
         >
           {a.enabled && a.status === 'ACTIVE'
             ? <ToggleRight className="w-5 h-5 text-[#00d4aa]" />

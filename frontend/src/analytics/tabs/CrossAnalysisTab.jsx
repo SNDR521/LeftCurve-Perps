@@ -164,7 +164,7 @@ export default function CrossAnalysisTab({ params, ns = 'cross', fetchDimensions
                   className="px-4 py-3 text-left text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em] cursor-pointer hover:text-[#8d91a6]">
                   <span className="inline-flex items-center gap-1">
                     {dims.find(d => d.key === primary)?.label || 'Group'}
-                    {sortKey === 'primary' && <ArrowUpDown className="w-3 h-3 text-[#38bdf8]" />}
+                    {sortKey === 'primary' && <ArrowUpDown className="w-3 h-3 text-[var(--accent)]" />}
                   </span>
                 </th>
                 {colDefs.map(col => (
@@ -172,7 +172,7 @@ export default function CrossAnalysisTab({ params, ns = 'cross', fetchDimensions
                     className={`px-3 py-3 text-[10px] font-semibold text-[#4e5166] uppercase tracking-[0.08em] cursor-pointer hover:text-[#8d91a6] ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
                     <span className="inline-flex items-center gap-1">
                       {col.label}
-                      {sortKey === col.key && <ArrowUpDown className="w-3 h-3 text-[#38bdf8]" />}
+                      {sortKey === col.key && <ArrowUpDown className="w-3 h-3 text-[var(--accent)]" />}
                     </span>
                   </th>
                 ))}

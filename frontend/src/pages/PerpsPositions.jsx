@@ -152,7 +152,7 @@ export default function PerpsPositions() {
                 <th key={col.key} onClick={() => handleSort(col.key)} className={col.right ? 'th-right' : ''}>
                   <span className="inline-flex items-center gap-1">
                     {col.label}
-                    {sortBy === col.key && <ArrowUpDown className="w-3 h-3 text-[#38bdf8]" />}
+                    {sortBy === col.key && <ArrowUpDown className="w-3 h-3 text-[var(--accent)]" />}
                   </span>
                 </th>
               ))}
@@ -182,7 +182,7 @@ export default function PerpsPositions() {
                   <td data-label="Symbol">
                     <span className="text-[13px] font-semibold text-[#fcfefd]">{p.symbol}</span>
                     {bulk[p.position_key]?.setup_name && (
-                      <span className="badge bg-[#38bdf8]/10 text-[#38bdf8] text-[10px] ml-1.5">{bulk[p.position_key].setup_name}</span>
+                      <span className="badge bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] text-[10px] ml-1.5">{bulk[p.position_key].setup_name}</span>
                     )}
                     {bulk[p.position_key]?.grade && (() => {
                       const gradeColors = { A: '#00d4aa', B: '#38bdf8', C: '#f59e0b', D: '#de576f' }
@@ -198,7 +198,7 @@ export default function PerpsPositions() {
                     <span className={`badge text-[11px] font-semibold ${
                       p.direction === 'LONG' ? 'bg-[#00d4aa]/10 text-[#00d4aa]' : 'bg-[#de576f]/10 text-[#de576f]'
                     }`}>{p.direction === 'LONG' ? '▲ Long' : '▼ Short'}</span>
-                    {p.status === 'OPEN' && <span className="badge bg-[#38bdf8]/10 text-[#38bdf8] text-[10px] ml-1.5">OPEN</span>}
+                    {p.status === 'OPEN' && <span className="badge bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] text-[10px] ml-1.5">OPEN</span>}
                   </td>
                   <td data-label="Entry" style={{ textAlign: 'right' }}><span className="font-mono text-[12px] text-[#8d91a6]">{fmt(p.avg_entry, 5)}</span></td>
                   <td data-label="Exit" style={{ textAlign: 'right' }}><span className="font-mono text-[12px] text-[#8d91a6]">{fmt(p.avg_exit, 5)}</span></td>

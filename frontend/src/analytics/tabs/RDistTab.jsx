@@ -65,7 +65,7 @@ export default function RDistTab({ tabKey, params, fetch, modes }) {
             <YAxis tick={{ fill: '#4e5166', fontSize: 10 }} stroke="transparent" tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip
               contentStyle={{ backgroundColor: '#1e2024', border: '1px solid #2a2c30', borderRadius: '10px', fontSize: '12px', padding: '8px 12px' }}
-              cursor={{ fill: 'rgba(56,189,248,0.05)' }}
+              cursor={{ fill: 'rgb(var(--accent-rgb)/0.05)' }}
               formatter={(v, _name, props) => {
                 const pct = props.payload.pct
                 return [pct != null ? `${v} trades (${pct}%)` : `${v} trades`, 'Count']

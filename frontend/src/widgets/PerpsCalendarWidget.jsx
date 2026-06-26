@@ -127,7 +127,7 @@ export default function PerpsCalendarWidget() {
                     key={cell.date}
                     className={`relative rounded-md flex flex-col items-center justify-center
                                transition-all duration-100 hover:brightness-125 cursor-default min-h-0 overflow-hidden ${
-                      cell.date === todayStr ? 'ring-1 ring-[#38bdf8]/50' : ''
+                      cell.date === todayStr ? 'ring-1 ring-[rgb(var(--accent-rgb)/0.5)]' : ''
                     }`}
                     style={cellStyle(cell.pnl)}
                     // native title instead of a floated tooltip — a custom popup

@@ -15,7 +15,7 @@ function SyncProgress({ p }) {
   return (
     <div className="w-[220px]">
       <div className="h-1.5 bg-[#2a2c30] rounded-full overflow-hidden">
-        <div className="h-full bg-[#38bdf8] rounded-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-[var(--accent)] rounded-full transition-all" style={{ width: `${pct}%` }} />
       </div>
       <div className="flex justify-between mt-0.5 text-[10px] text-[#4e5166]">
         <span>importing {date} · {pct.toFixed(0)}%</span>
@@ -159,7 +159,7 @@ export default function PerpsAccounts() {
         {accounts.length === 0 && <p className="p-4 text-[13px] text-[#4e5166]">No exchange accounts yet.</p>}
         {accounts.map(a => (
           <div key={a.id} className="flex items-center gap-3 px-4 py-3">
-            <Wallet className="w-4 h-4 text-[#38bdf8]" />
+            <Wallet className="w-4 h-4 text-[var(--accent)]" />
             <span className="text-[13px] text-[#e2e4ef]">{a.label}</span>
             <span className="text-[11px] text-[#4e5166]">{a.venue}</span>
             <div className="ml-auto flex items-center gap-3">

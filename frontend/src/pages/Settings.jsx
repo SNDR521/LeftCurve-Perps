@@ -31,7 +31,7 @@ export default function Settings() {
       {/* ── Database ─────────────────────────────────────────────── */}
       <section className="card p-5 space-y-3">
         <div className="flex items-center gap-2.5">
-          <Database className="w-4.5 h-4.5 text-[#38bdf8]" />
+          <Database className="w-4.5 h-4.5 text-[var(--accent)]" />
           <h2 className="text-[15px] font-semibold text-white">Data Storage</h2>
         </div>
         <p className="text-[13px] text-[#8d91a6]">
@@ -64,9 +64,35 @@ const PAGE_OPTIONS = [
   { value: '/plan', label: 'Daily Plan' },
 ]
 
+const ACCENT_SWATCHES = [
+  { hex: '#38bdf8', label: 'Sky (default)' },
+  { hex: '#00d4aa', label: 'Emerald' },
+  { hex: '#8b5cf6', label: 'Violet' },
+  { hex: '#f59e0b', label: 'Amber' },
+  { hex: '#f43f5e', label: 'Rose' },
+]
+
 function AppearanceSection() {
   const { prefs, updatePrefs } = usePreferences()
   const tickerBar = prefs.ticker_bar ?? { enabled: true, symbols: [] }
+  const accent = prefs.theme?.accent || '#38bdf8'
+  const density = prefs.theme?.density || 'comfortable'
+  const [hexInput, setHexInput] = useState(accent)
+
+  // Keep the hex field in sync when accent changes from a swatch click.
+  useEffect(() => { setHexInput(accent) }, [accent])
+
+  function setAccent(hex) {
+    updatePrefs({ theme: { ...prefs.theme, accent: hex } })
+  }
+  function setDensity(d) {
+    updatePrefs({ theme: { ...prefs.theme, density: d } })
+  }
+  function handleHexInput(e) {
+    const val = e.target.value
+    setHexInput(val)
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) setAccent(val)
+  }
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -131,12 +157,63 @@ function AppearanceSection() {
   return (
     <section className="card p-5 space-y-5">
       <div className="flex items-center gap-2.5">
-        <Monitor className="w-4 h-4 text-[#38bdf8]" />
+        <Monitor className="w-4 h-4 text-[var(--accent)]" />
         <h2 className="text-[15px] font-semibold text-white">Appearance</h2>
       </div>
 
+      {/* Accent color */}
+      <div className="space-y-2">
+        <p className="text-[13px] text-[#e2e4ef]">Accent color</p>
+        <p className="text-[11px] text-[#4e5166]">Recolors buttons, links, and active states</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {ACCENT_SWATCHES.map(s => (
+            <button
+              key={s.hex}
+              title={s.label}
+              onClick={() => setAccent(s.hex)}
+              className="w-7 h-7 rounded-full transition-all focus:outline-none"
+              style={{
+                background: s.hex,
+                boxShadow: accent === s.hex ? `0 0 0 2px #111213, 0 0 0 4px ${s.hex}` : 'none',
+                transform: accent === s.hex ? 'scale(1.15)' : 'scale(1)',
+              }}
+              aria-pressed={accent === s.hex}
+            />
+          ))}
+          <input
+            type="text"
+            value={hexInput}
+            onChange={handleHexInput}
+            placeholder="#rrggbb"
+            maxLength={7}
+            className="input text-[12px] py-1 px-2 w-24 font-mono"
+          />
+        </div>
+      </div>
+
+      {/* Layout density */}
+      <div className="border-t border-[#2a2c30] pt-4 space-y-2">
+        <p className="text-[13px] text-[#e2e4ef]">Layout density</p>
+        <p className="text-[11px] text-[#4e5166]">Compact reduces card and table row padding</p>
+        <div className="flex gap-1.5">
+          {['comfortable', 'compact'].map(d => (
+            <button
+              key={d}
+              onClick={() => setDensity(d)}
+              className={`px-4 py-1.5 rounded-md text-[12px] font-medium transition-all capitalize ${
+                density === d
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[#2a2c30] text-[#8d91a6] hover:text-[#e2e4ef]'
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Market Ticker Toggle */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="border-t border-[#2a2c30] pt-4 flex items-center justify-between gap-4">
         <div>
           <p className="text-[13px] text-[#e2e4ef]">Show market ticker bar</p>
           <p className="text-[11px] text-[#4e5166] mt-0.5">Live prices in the top bar</p>
@@ -144,7 +221,7 @@ function AppearanceSection() {
         <button
           onClick={() => toggleEnabled(!tickerBar.enabled)}
           className={`relative inline-flex rounded-full transition-colors focus:outline-none ${
-            tickerBar.enabled ? 'bg-[#38bdf8]' : 'bg-[#2a2c30]'
+            tickerBar.enabled ? 'bg-[var(--accent)]' : 'bg-[#2a2c30]'
           }`}
           style={{ minWidth: '2.5rem', width: '2.5rem', height: '1.375rem' }}
           aria-checked={tickerBar.enabled}
@@ -191,7 +268,7 @@ function AppearanceSection() {
                 <span className={`badge text-[10px] shrink-0 ${
                   s.source === 'bybit'
                     ? 'bg-[#f7931a]/10 text-[#f7931a] border border-[#f7931a]/20'
-                    : 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20'
+                    : 'bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] border border-[rgb(var(--accent-rgb)/0.2)]'
                 }`}>
                   {s.source}
                 </span>
@@ -238,7 +315,7 @@ function AppearanceSection() {
                     <span className={`badge text-[10px] shrink-0 ${
                       r.source === 'bybit'
                         ? 'bg-[#f7931a]/10 text-[#f7931a] border border-[#f7931a]/20'
-                        : 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20'
+                        : 'bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent)] border border-[rgb(var(--accent-rgb)/0.2)]'
                     }`}>{r.source}</span>
                   </button>
                 ))}
@@ -259,7 +336,7 @@ function AppearanceSection() {
               onClick={() => updatePrefs({ default_period: p.key })}
               className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
                 prefs.default_period === p.key
-                  ? 'bg-[#38bdf8] text-white'
+                  ? 'bg-[var(--accent)] text-white'
                   : 'bg-[#2a2c30] text-[#8d91a6] hover:text-[#e2e4ef]'
               }`}
             >
@@ -377,7 +454,7 @@ function TelegramSection() {
   return (
     <section className="card p-5 space-y-4">
       <div className="flex items-center gap-2.5">
-        <Send className="w-4.5 h-4.5 text-[#38bdf8]" />
+        <Send className="w-4.5 h-4.5 text-[var(--accent)]" />
         <h2 className="text-[15px] font-semibold text-white">Telegram</h2>
       </div>
 

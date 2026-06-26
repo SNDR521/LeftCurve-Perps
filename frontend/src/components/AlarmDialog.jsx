@@ -132,7 +132,7 @@ function Segmented({ options, value, onChange }) {
           onClick={() => onChange(o.value)}
           className={`flex-1 py-1.5 text-[12px] font-semibold rounded-md transition-all
             ${value === o.value
-              ? 'bg-[#38bdf8] text-[#0b1116] shadow-[0_1px_4px_rgba(56,189,248,0.35)]'
+              ? 'bg-[var(--accent)] text-[#0b1116] shadow-[0_1px_4px_rgb(var(--accent-rgb)/0.35)]'
               : 'text-[#7e8497] hover:text-[#b6bccb]'}`}
         >
           {o.label}
@@ -159,7 +159,7 @@ function Dropdown({ options, value, onChange }) {
         onClick={() => setOpen((o) => !o)}
         className="w-full h-[38px] px-3 flex items-center justify-between rounded-lg
                    bg-[#15171a] border border-[#2a2c30] text-[13px] text-[#e8ebf2]
-                   hover:border-[#3a3c42] focus:border-[#38bdf8] focus:outline-none transition-colors"
+                   hover:border-[#3a3c42] focus:border-[var(--accent)] focus:outline-none transition-colors"
       >
         <span className="truncate">{cur?.label || 'Select…'}</span>
         <ChevronDown className={`w-3.5 h-3.5 text-[#5a6072] shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -174,7 +174,7 @@ function Dropdown({ options, value, onChange }) {
               type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
               className={`w-full px-3 py-2 flex items-center justify-between text-left text-[12.5px] transition-colors
-                ${o.value === value ? 'text-[#38bdf8] bg-[#38bdf8]/[0.06]' : 'text-[#c7ccd8] hover:bg-[#26282d]'}`}
+                ${o.value === value ? 'text-[var(--accent)] bg-[rgb(var(--accent-rgb)/0.06)]' : 'text-[#c7ccd8] hover:bg-[#26282d]'}`}
             >
               <span className="truncate">{o.label}</span>
               {o.value === value && <Check className="w-3.5 h-3.5 shrink-0" />}
@@ -194,7 +194,7 @@ function Switch({ on, locked, onClick }) {
       onClick={onClick}
       aria-pressed={on}
       className={`relative w-[34px] h-[19px] rounded-full shrink-0 transition-colors
-        ${locked ? 'bg-[#1e6b86] cursor-default' : on ? 'bg-[#38bdf8]' : 'bg-[#33363d]'}`}
+        ${locked ? 'bg-[#1e6b86] cursor-default' : on ? 'bg-[var(--accent)]' : 'bg-[#33363d]'}`}
     >
       <span className={`absolute top-[2px] w-[15px] h-[15px] rounded-full bg-white transition-all
         ${on || locked ? 'right-[2px]' : 'left-[2px]'}`} />
@@ -314,7 +314,7 @@ export default function AlarmDialog({ onClose }) {
 
         {/* Header */}
         <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-[#26282d] shrink-0">
-          <BellRing className="w-4 h-4 text-[#38bdf8]" />
+          <BellRing className="w-4 h-4 text-[var(--accent)]" />
           <span className="text-[14px] font-semibold tracking-tight text-[#f2f4f8]">New alarm</span>
           <button onClick={onClose} className="ml-auto text-[#4e5166] hover:text-white transition-colors">
             <X className="w-4 h-4" />
@@ -340,7 +340,7 @@ export default function AlarmDialog({ onClose }) {
                     placeholder="e.g. BTC"
                     className="w-full h-[38px] px-3 rounded-lg bg-[#15171a] border border-[#2a2c30]
                                text-[13px] text-[#e8ebf2] uppercase placeholder:normal-case placeholder:text-[#565b6b]
-                               focus:border-[#38bdf8] focus:outline-none transition-colors"
+                               focus:border-[var(--accent)] focus:outline-none transition-colors"
                     required
                   />
                 </Field>
@@ -362,7 +362,7 @@ export default function AlarmDialog({ onClose }) {
           {showValue && (
             <Field label="Value">
               <div className="flex h-[38px] rounded-lg overflow-hidden bg-[#15171a] border border-[#2a2c30]
-                              focus-within:border-[#38bdf8] transition-colors">
+                              focus-within:border-[var(--accent)] transition-colors">
                 <input
                   type="number"
                   step="any"
@@ -402,7 +402,7 @@ export default function AlarmDialog({ onClose }) {
                 placeholder="entry / ref price"
                 className="w-full h-[38px] px-3 rounded-lg bg-[#15171a] border border-[#2a2c30]
                            text-[13px] text-[#e8ebf2] placeholder:text-[#565b6b]
-                           focus:border-[#38bdf8] focus:outline-none transition-colors"
+                           focus:border-[var(--accent)] focus:outline-none transition-colors"
               />
             </Field>
           )}
@@ -427,7 +427,7 @@ export default function AlarmDialog({ onClose }) {
                   onClick={() => pickExpiry(chip)}
                   className={`text-[11.5px] font-medium px-3 py-1.5 rounded-md border transition-colors
                     ${expiryMode === chip.key
-                      ? 'bg-[#38bdf8]/[0.12] border-[#38bdf8] text-[#38bdf8]'
+                      ? 'bg-[rgb(var(--accent-rgb)/0.12)] border-[var(--accent)] text-[var(--accent)]'
                       : 'bg-[#15171a] border-[#2a2c30] text-[#8d91a6] hover:border-[#3a3c42]'}`}
                 >
                   {chip.label}
@@ -440,7 +440,7 @@ export default function AlarmDialog({ onClose }) {
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
                 className="mt-2 w-full h-[38px] px-3 rounded-lg bg-[#15171a] border border-[#2a2c30]
-                           text-[13px] text-[#e8ebf2] focus:border-[#38bdf8] focus:outline-none transition-colors
+                           text-[13px] text-[#e8ebf2] focus:border-[var(--accent)] focus:outline-none transition-colors
                            [color-scheme:dark]"
               />
             )}
@@ -469,14 +469,14 @@ export default function AlarmDialog({ onClose }) {
               placeholder="Custom note shown when fired"
               className="w-full h-[38px] px-3 rounded-lg bg-[#15171a] border border-[#2a2c30]
                          text-[13px] text-[#e8ebf2] placeholder:text-[#565b6b]
-                         focus:border-[#38bdf8] focus:outline-none transition-colors"
+                         focus:border-[var(--accent)] focus:outline-none transition-colors"
             />
           </Field>
 
           {/* Preview */}
           <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-[#15171a]
-                          border border-[#2a2c30] border-l-2 border-l-[#38bdf8]">
-            <BellRing className="w-3.5 h-3.5 text-[#38bdf8] shrink-0 mt-0.5" />
+                          border border-[#2a2c30] border-l-2 border-l-[var(--accent)]">
+            <BellRing className="w-3.5 h-3.5 text-[var(--accent)] shrink-0 mt-0.5" />
             <div className="min-w-0">
               <p className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#4e5166]">Preview</p>
               <p className="text-[12.5px] text-[#c7ccd8] mt-0.5">{preview} <span className="text-[#4e5166]">→ {channels}</span></p>
@@ -496,9 +496,9 @@ export default function AlarmDialog({ onClose }) {
             type="submit"
             form="alarm-form"
             disabled={saveMutation.isPending}
-            className="text-[13px] font-semibold text-[#0b1116] bg-[#38bdf8] hover:bg-[#5cc6f7]
+            className="text-[13px] font-semibold text-[#0b1116] bg-[var(--accent)] hover:bg-[#5cc6f7]
                        rounded-lg px-4 py-2 transition-colors disabled:opacity-50
-                       shadow-[0_2px_8px_rgba(56,189,248,0.3)]"
+                       shadow-[0_2px_8px_rgb(var(--accent-rgb)/0.3)]"
           >
             {saveMutation.isPending ? 'Creating…' : 'Create alarm'}
           </button>

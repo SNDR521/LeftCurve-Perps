@@ -110,7 +110,7 @@ export default function DashboardGrid({ registry, defaultLayout, defaultWidgets,
           )}
           {/* Lock stays rightmost so it doesn't shift under the cursor when Add/Reset appear */}
           <button onClick={() => { const next = !editing; setEditing(next); if (!next) setShowPicker(false) }}
-            className={`p-2 rounded-lg transition-all ${editing ? 'bg-[#38bdf8] text-white' : 'bg-[#1e2024] border border-[#2a2c30] text-[#4e5166] hover:text-[#8d91a6]'}`}>
+            className={`p-2 rounded-lg transition-all ${editing ? 'bg-[var(--accent)] text-white' : 'bg-[#1e2024] border border-[#2a2c30] text-[#4e5166] hover:text-[#8d91a6]'}`}>
             {editing ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
           </button>
         </div>
@@ -132,8 +132,8 @@ export default function DashboardGrid({ registry, defaultLayout, defaultWidgets,
               {availableWidgets.map(w => (
                 <button key={w.id} onClick={() => addWidget(w.id)}
                   className="flex items-center gap-2 p-2.5 bg-[#161718] border border-[#2a2c30] rounded-lg
-                             text-left hover:border-[#38bdf8]/30 hover:bg-[#1e2024] transition-all group">
-                  <w.icon className="w-4 h-4 text-[#4e5166] group-hover:text-[#38bdf8] transition-colors shrink-0" />
+                             text-left hover:border-[rgb(var(--accent-rgb)/0.3)] hover:bg-[#1e2024] transition-all group">
+                  <w.icon className="w-4 h-4 text-[#4e5166] group-hover:text-[var(--accent)] transition-colors shrink-0" />
                   <span className="text-[11px] text-[#8d91a6] group-hover:text-white transition-colors truncate">
                     {w.label}
                   </span>

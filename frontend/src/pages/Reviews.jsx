@@ -226,7 +226,7 @@ function AllTradesList({ trades }) {
                     className={`hover:bg-[#242629] transition-colors ${!isWin ? 'bg-[#de576f]/5' : ''}`}>
                     <td className="px-5 py-2">
                       <Link to={`/trades/${t.id}`}
-                        className="font-medium text-white hover:text-[#38bdf8] transition-colors flex items-center gap-1.5">
+                        className="font-medium text-white hover:text-[var(--accent)] transition-colors flex items-center gap-1.5">
                         {!isWin && <span className="text-[#de576f] text-[10px]">⚑</span>}
                         {t.symbol}
                       </Link>
@@ -324,7 +324,7 @@ export default function Reviews() {
   const header = (
     <div className="flex items-center justify-between flex-wrap gap-4">
       <div className="flex items-center gap-3">
-        <ClipboardCheck className="w-5 h-5 text-[#38bdf8]" />
+        <ClipboardCheck className="w-5 h-5 text-[var(--accent)]" />
         <div>
           <h1 className="text-[22px] font-semibold text-white">Reviews</h1>
           <p className="text-[13px] text-[#4e5166] mt-0.5">
@@ -337,7 +337,7 @@ export default function Reviews() {
           {['WEEK', 'MONTH'].map((t) => (
             <button key={t} onClick={() => switchType(t)}
               className={`px-4 py-1.5 text-[12px] font-semibold rounded-md transition-all ${
-                type === t ? 'bg-[#38bdf8] text-white' : 'text-[#4e5166] hover:text-[#8d91a6]'
+                type === t ? 'bg-[var(--accent)] text-white' : 'text-[#4e5166] hover:text-[#8d91a6]'
               }`}>
               {t === 'WEEK' ? 'Week' : 'Month'}
             </button>

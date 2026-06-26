@@ -55,7 +55,7 @@ export default function FeesTab({ params }) {
             <tbody className="divide-y divide-[#2a2c30]/50">
               {bySymbol.map(r => (
                 <tr key={r.symbol} className="hover:bg-[#242629] transition-colors">
-                  <td className="px-4 py-3 font-semibold text-[#38bdf8]">{r.symbol}</td>
+                  <td className="px-4 py-3 font-semibold text-[var(--accent)]">{r.symbol}</td>
                   <td className="px-4 py-3 text-right font-mono text-[#8d91a6]">{fmt$(r.fees_total)}</td>
                   <td className="px-4 py-3 text-right font-mono text-[#8d91a6]">{fmt$(r.round_trip_cost)}</td>
                 </tr>

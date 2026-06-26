@@ -34,10 +34,10 @@ export default function StatCardWidget({ metricKey, label, format, icon }) {
         </p>
         {Icon && (
           <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-            isPositive ? 'bg-[#00d4aa]/10' : isNegative ? 'bg-[#de576f]/10' : 'bg-[#38bdf8]/10'
+            isPositive ? 'bg-[#00d4aa]/10' : isNegative ? 'bg-[#de576f]/10' : 'bg-[rgb(var(--accent-rgb)/0.1)]'
           }`}>
             <Icon className={`w-3 h-3 ${
-              isPositive ? 'text-[#00d4aa]' : isNegative ? 'text-[#de576f]' : 'text-[#38bdf8]'
+              isPositive ? 'text-[#00d4aa]' : isNegative ? 'text-[#de576f]' : 'text-[var(--accent)]'
             }`} />
           </div>
         )}

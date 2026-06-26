@@ -464,9 +464,9 @@ export default function TradeChart({
           ref={shadingRef}
           className="absolute top-0 bottom-0 pointer-events-none opacity-0"
           style={{
-            backgroundColor: 'rgba(56,189,248,0.05)',
-            borderLeft:  '1px solid rgba(56,189,248,0.2)',
-            borderRight: '1px solid rgba(56,189,248,0.2)',
+            backgroundColor: 'rgb(var(--accent-rgb)/0.05)',
+            borderLeft:  '1px solid rgb(var(--accent-rgb)/0.2)',
+            borderRight: '1px solid rgb(var(--accent-rgb)/0.2)',
           }}
         />
 
@@ -480,7 +480,7 @@ export default function TradeChart({
                   key={tf.value ?? 'auto'}
                   onClick={() => setTfOverride(tf.value)}
                   className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-                    active ? 'bg-[#38bdf8]/20 text-[#38bdf8]' : 'text-[#4e5166] hover:text-[#8d91a6]'
+                    active ? 'bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)]' : 'text-[#4e5166] hover:text-[#8d91a6]'
                   }`}
                 >
                   {tf.value === null ? 'Auto' : tf.label}
@@ -522,7 +522,7 @@ export default function TradeChart({
                       checked={!!layers[item.key]}
                       disabled={item.disabled}
                       onChange={() => toggleLayer(item.key)}
-                      className="accent-[#38bdf8] w-3 h-3"
+                      className="accent-[var(--accent)] w-3 h-3"
                     />
                     {item.label}
                   </label>
@@ -546,7 +546,7 @@ export default function TradeChart({
             {freeMode ? (
               <button
                 onClick={snapToTrade}
-                className="flex items-center gap-1.5 px-2 py-1 bg-[#1e2024]/90 border border-[#38bdf8]/40 text-[#38bdf8] rounded-lg text-[10px] font-medium backdrop-blur-sm hover:bg-[#2a2c30] transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1 bg-[#1e2024]/90 border border-[rgb(var(--accent-rgb)/0.4)] text-[var(--accent)] rounded-lg text-[10px] font-medium backdrop-blur-sm hover:bg-[#2a2c30] transition-colors"
               >
                 <Crosshair className="w-3 h-3" /> Snap to trade
               </button>

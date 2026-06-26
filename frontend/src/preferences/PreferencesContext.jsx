@@ -37,6 +37,7 @@ export function PreferencesProvider({ children }) {
     const accent = prefs.theme?.accent || '#38bdf8'
     const density = prefs.theme?.density || 'comfortable'
     document.documentElement.style.setProperty('--accent', accent)
+    document.documentElement.style.setProperty('--accent-rgb', hexToRgb(accent))
     document.documentElement.dataset.density = density
   }, [prefs.theme?.accent, prefs.theme?.density])
 
@@ -60,6 +61,15 @@ export function PreferencesProvider({ children }) {
 }
 
 export function usePreferences() { return useContext(PreferencesCtx) }
+
+// Converts '#38bdf8' → '56 189 248' (space-separated for rgb(var(--accent-rgb)/alpha))
+function hexToRgb(hex) {
+  const h = String(hex).replace('#', '')
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  return `${r} ${g} ${b}`
+}
 
 // Shallow-deep merge: merges one level of nesting (enough for our prefs shape)
 function deepMerge(base, partial) {
