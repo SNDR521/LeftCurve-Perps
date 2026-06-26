@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2e3038 #111213;
+  }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #111213; }
+  ::-webkit-scrollbar-thumb { background: #2e3038; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3c42; }
+
+  body {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-[10px];
+    background: #1e2024;
+    border: 1px solid #2a2c30;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .card-interactive {
+    @apply card transition-all duration-200;
+  }
+  .card-interactive:hover {
+    border-color: #3a3c42;
+    background: #242629;
+  }
+  .glass {
+    @apply rounded-[10px] backdrop-blur-md;
+    background: rgba(30,32,36,0.92);
+    border: 1px solid #2a2c30;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .btn-primary {
+    @apply px-4 py-2.5 font-medium rounded-lg text-[#111213]
+           transition-all duration-150 focus:outline-none active:scale-[0.98];
+    background: #00d4aa;
+  }
+  .btn-primary:hover { background: #00bfa0; }
+  .btn-primary:focus { box-shadow: 0 0 0 2px rgba(0,212,170,0.4); }
+  .btn-blue {
+    @apply px-4 py-2.5 font-medium rounded-lg text-white
+           transition-all duration-150 focus:outline-none active:scale-[0.98];
+    background: #38bdf8;
+  }
+  .btn-blue:hover { background: #4060e6; }
+  .btn-blue:focus { box-shadow: 0 0 0 2px rgba(79,110,247,0.4); }
+  .btn-danger {
+    @apply px-4 py-2.5 font-medium rounded-lg transition-all duration-150 focus:outline-none active:scale-[0.98];
+    background: rgba(222,87,111,0.1);
+    border: 1px solid rgba(222,87,111,0.2);
+    color: #de576f;
+  }
+  .btn-danger:hover { background: rgba(222,87,111,0.18); }
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg transition-all duration-150;
+    color: #8d91a6;
+  }
+  .btn-ghost:hover { color: #fcfefd; background: #2a2c30; }
+  .input {
+    @apply rounded-lg px-3 py-2.5 text-sm transition-all;
+    background: #111213;
+    border: 1px solid #2a2c30;
+    color: #e2e4ef;
+    outline: none;
+  }
+  .input::placeholder { color: #4e5166; }
+  .input:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 1px rgba(79,110,247,0.2);
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+  }
+  .stat-card {
+    @apply rounded-[10px] p-4;
+    background: #1e2024;
+    border: 1px solid #2a2c30;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .pnl-pos { color: #00d4aa; }
+  .pnl-neg { color: #de576f; }
+  .pnl-flat { color: #8d91a6; }
+
+  /* ── Tab system ───────────────────────── */
+  .tab-bar {
+    @apply flex gap-0.5 rounded-lg p-0.5;
+    background: #111213;
+    border: 1px solid #2a2c30;
+  }
+  .tab-item {
+    @apply px-3 py-1.5 rounded-md text-[12px] font-medium transition-all duration-150 cursor-pointer;
+    color: #4e5166;
+  }
+  .tab-item:hover { color: #8d91a6; }
+  .tab-item.active {
+    background: #2a2c30;
+    color: #fcfefd;
+  }
+
+  /* ── Skeleton loader ──────────────────── */
+  .skeleton {
+    @apply rounded animate-pulse;
+    background: #2a2c30;
+  }
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #1e2024 25%, #2a2c30 50%, #1e2024 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+/* ── Rows-as-cards table ────────────────── */
+.rows-table {
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  width: 100%;
+}
+.rows-table thead th {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4e5166;
+  padding: 4px 14px 8px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.rows-table thead th:hover { color: #8d91a6; }
+.rows-table thead th.th-right { text-align: right; }
+
+.rows-table tbody tr td {
+  padding: 10px 14px;
+  background: #1e2024;
+  border-top: 1px solid #2a2c30;
+  border-bottom: 1px solid #2a2c30;
+  transition: background 0.12s, border-color 0.12s;
+}
+.rows-table tbody tr td:first-child {
+  border-left: 1px solid #2a2c30;
+  border-radius: 10px 0 0 10px;
+}
+.rows-table tbody tr td:last-child {
+  border-right: 1px solid #2a2c30;
+  border-radius: 0 10px 10px 0;
+}
+.rows-table tbody tr:hover td {
+  background: #242629;
+  border-color: #3a3c42;
+  cursor: pointer;
+}
+.rows-table tbody tr.row-win td { border-left-color: #00d4aa; }
+.rows-table tbody tr.row-win td:first-child { border-left: 2px solid #00d4aa; }
+.rows-table tbody tr.row-loss td:first-child { border-left: 2px solid #de576f; }
+
+/* react-grid-layout overrides */
+.react-grid-item.react-grid-placeholder {
+  background: rgba(79, 110, 247, 0.15) !important;
+  border: 1px dashed rgba(79, 110, 247, 0.4) !important;
+  border-radius: 10px !important;
+  opacity: 1 !important;
+}
+.react-grid-item > .react-resizable-handle::after {
+  border-color: #3a3c42 !important;
+}
+.react-grid-item.resizing { opacity: 0.8; }
+.react-grid-item.react-draggable-dragging {
+  z-index: 100;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* Heatmap cell hover */
+.heatmap-cell {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.heatmap-cell:hover {
+  transform: scale(1.2);
+  z-index: 10;
+  box-shadow: 0 0 8px rgba(0,0,0,0.6);
+}
+
+/* ── Mobile: stack rows-as-cards into label/value cards (< md) ── */
+@media (max-width: 767px) {
+  .rows-table { border-spacing: 0 8px; }
+  .rows-table thead { display: none; }
+  .rows-table tbody tr { display: block; }
+  .rows-table tbody tr td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+    padding: 8px 14px;
+    border: 1px solid #2a2c30;
+    border-top: none;
+    border-radius: 0;
+  }
+  .rows-table tbody tr td:first-child {
+    border-top: 1px solid #2a2c30;
+    border-radius: 10px 10px 0 0;
+  }
+  .rows-table tbody tr td:last-child {
+    border-radius: 0 0 10px 10px;
+  }
+  .rows-table tbody tr td[data-label]::before {
+    content: attr(data-label);
+    margin-right: auto;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #4e5166;
+  }
+  .rows-table tbody tr.row-win td:first-child { border-left: 2px solid #00d4aa; }
+  .rows-table tbody tr.row-loss td:first-child { border-left: 2px solid #de576f; }
+}

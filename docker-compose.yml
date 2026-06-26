@@ -1,0 +1,71 @@
+# LeftCurve — self-host docker-compose
+#
+# Quickstart:
+#   cp backend/.env.example backend/.env   # then set SECRET_KEY and SESSION_SECRET
+#   docker compose up --build
+#
+# The app will be available at http://localhost:3000
+# First run shows a setup screen to create your account.
+#
+# Postgres (optional):
+#   Uncomment the `db` service and its depends_on in the api service below,
+#   then set DATABASE_URL=postgresql+psycopg://leftcurve:leftcurve@db:5432/leftcurve
+#   in backend/.env and run: docker compose --profile postgres up --build
+
+services:
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      # Default SQLite lives inside the mounted data dir so it persists across
+      # restarts. Overrides any commented DATABASE_URL in .env; to use Postgres
+      # instead, set DATABASE_URL in .env (see the db service below).
+      DATABASE_URL: sqlite:////app/data/leftcurve.db
+    volumes:
+      # Persist SQLite database and uploaded screenshots across container restarts.
+      - db_data:/app/data
+      - screenshots:/app/screenshots
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    # Uncomment when using Postgres (see db service at the bottom):
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
+
+  web:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # --- Optional Postgres backend ---
+  # To use Postgres instead of SQLite:
+  #   1. Uncomment the entire db service block below.
+  #   2. Set DATABASE_URL=postgresql+psycopg://leftcurve:leftcurve@db:5432/leftcurve
+  #      in backend/.env (or export it in your shell before running compose).
+  #   3. Uncomment the depends_on block in the api service above.
+  #   4. Run: docker compose --profile postgres up --build
+  #
+  # db:
+  #   image: postgres:16
+  #   profiles: [postgres]
+  #   environment:
+  #     POSTGRES_USER: leftcurve
+  #     POSTGRES_PASSWORD: leftcurve
+  #     POSTGRES_DB: leftcurve
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U leftcurve -d leftcurve"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #   restart: unless-stopped
+
+volumes:
+  db_data: {}
+  screenshots: {}
+  # pgdata: {}   # uncomment when using Postgres
