@@ -635,17 +635,16 @@ export default function TradeDetailShell({ adapter, id }) {
 
         {/* Right sidebar (1/3 width) */}
         <div className="space-y-4">
-          <div className="card p-4">
+          <div className="card p-4 space-y-4">
             <adapter.TagsPanel data={data} />
-          </div>
-
-          <div className="card p-4 space-y-3">
-            <h3 className="text-[11px] font-semibold text-[#4e5166] uppercase tracking-wider">
-              {adapter.quickStatsTitle ? adapter.quickStatsTitle(data) : 'Quick stats'}
-            </h3>
-            {quickStats.map((s) => (
-              <QuickStat key={s.label} label={s.label} value={s.value} color={s.color} />
-            ))}
+            <div className="border-t border-[#2a2c30] pt-4 space-y-3">
+              <h3 className="text-[11px] font-semibold text-[#4e5166] uppercase tracking-wider">
+                {adapter.quickStatsTitle ? adapter.quickStatsTitle(data) : 'Quick stats'}
+              </h3>
+              {quickStats.map((s) => (
+                <QuickStat key={s.label} label={s.label} value={s.value} color={s.color} />
+              ))}
+            </div>
           </div>
 
           {adapter.RiskCard ? (

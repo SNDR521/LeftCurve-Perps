@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Wallet, Trash2, RefreshCw } from 'lucide-react'
 import { fetchPerpsAccounts, createPerpsAccount, deletePerpsAccount, syncPerpsAccount } from '../lib/api'
 
-const VENUES = ['BYBIT', 'HYPERLIQUID', 'LIGHTER']
+const VENUES = ['BYBIT', 'HYPERLIQUID']
 
 function SyncProgress({ p }) {
   if (!p || p.state !== 'running') return null
