@@ -78,9 +78,13 @@ function AppearanceSection() {
   const accent = prefs.theme?.accent || '#38bdf8'
   const density = prefs.theme?.density || 'comfortable'
   const [hexInput, setHexInput] = useState(accent)
+  const accentTimer = useRef(null)
 
   // Keep the hex field in sync when accent changes from a swatch click.
   useEffect(() => { setHexInput(accent) }, [accent])
+
+  // Clear any pending debounced accent write on unmount.
+  useEffect(() => () => clearTimeout(accentTimer.current), [])
 
   function setAccent(hex) {
     updatePrefs({ theme: { ...prefs.theme, accent: hex } })
@@ -88,10 +92,19 @@ function AppearanceSection() {
   function setDensity(d) {
     updatePrefs({ theme: { ...prefs.theme, density: d } })
   }
+  // Debounced so typing/dragging a hex value doesn't spam PUT /api/preferences.
   function handleHexInput(e) {
     const val = e.target.value
     setHexInput(val)
-    if (/^#[0-9a-fA-F]{6}$/.test(val)) setAccent(val)
+    clearTimeout(accentTimer.current)
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+      accentTimer.current = setTimeout(() => setAccent(val), 300)
+    }
+  }
+  // Commit immediately on blur in case the debounce hasn't fired yet.
+  function commitHex() {
+    clearTimeout(accentTimer.current)
+    if (/^#[0-9a-fA-F]{6}$/.test(hexInput) && hexInput !== accent) setAccent(hexInput)
   }
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -184,6 +197,7 @@ function AppearanceSection() {
             type="text"
             value={hexInput}
             onChange={handleHexInput}
+            onBlur={commitHex}
             placeholder="#rrggbb"
             maxLength={7}
             className="input text-[12px] py-1 px-2 w-24 font-mono"

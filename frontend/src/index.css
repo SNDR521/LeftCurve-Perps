@@ -57,10 +57,10 @@
   .btn-blue {
     @apply px-4 py-2.5 font-medium rounded-lg text-white
            transition-all duration-150 focus:outline-none active:scale-[0.98];
-    background: #38bdf8;
+    background: var(--accent);
   }
-  .btn-blue:hover { background: #4060e6; }
-  .btn-blue:focus { box-shadow: 0 0 0 2px rgba(79,110,247,0.4); }
+  .btn-blue:hover { background: color-mix(in srgb, var(--accent), black 12%); }
+  .btn-blue:focus { box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.5); }
   .btn-danger {
     @apply px-4 py-2.5 font-medium rounded-lg transition-all duration-150 focus:outline-none active:scale-[0.98];
     background: rgba(222,87,111,0.1);
@@ -82,8 +82,8 @@
   }
   .input::placeholder { color: #4e5166; }
   .input:focus {
-    border-color: #38bdf8;
-    box-shadow: 0 0 0 1px rgba(79,110,247,0.2);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.5);
   }
   .badge {
     @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
