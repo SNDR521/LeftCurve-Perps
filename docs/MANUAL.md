@@ -377,6 +377,13 @@ The first sync backfills your full available history (Bybit retains approximatel
 
 No API key is needed. Hyperliquid's API is fully public for read operations given an address.
 
+### Keeping data in sync
+
+After the initial import, LeftCurve auto-syncs your active accounts every few minutes in the background. To pull the latest fills on demand:
+
+- **Dashboard → Sync button** (top-right): syncs the account selected in the sidebar, or all accounts when "All Accounts" is selected, then refreshes the dashboard when it finishes.
+- **Accounts page → per-account Sync button**: syncs a single account and shows detailed progress.
+
 ---
 
 ## 8. Telegram alarms (optional)
