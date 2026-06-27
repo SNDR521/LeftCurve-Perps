@@ -1,13 +1,13 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { ChevronRight, RefreshCw } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DashboardCtx } from '../dashboard/DashboardContext'
 import DashboardGrid from '../dashboard/DashboardGrid'
 import PERPS_WIDGET_REGISTRY, { PERPS_DEFAULT_LAYOUT, PERPS_DEFAULT_WIDGETS } from '../widgets/perpsRegistry'
 import { getDateRange, getPeriodLabel, loadPeriod, savePeriod } from '../dashboard/period'
 import PeriodSelector from '../dashboard/PeriodSelector'
-import { fetchPerpsOverview, fetchPerpsPerformance, fetchPerpsDailyPnl, fetchPerpsDrawdown, fetchPerpsEquity, fetchPerpsCockpit } from '../lib/api'
+import { fetchPerpsOverview, fetchPerpsPerformance, fetchPerpsDailyPnl, fetchPerpsDrawdown, fetchPerpsEquity, fetchPerpsCockpit, fetchPerpsAccounts, syncPerpsAccount } from '../lib/api'
 import { useAccount } from '../components/Layout'
 import TodayPlanCard from '../components/TodayPlanCard'
 import { usePreferences } from '../preferences/PreferencesContext'
@@ -39,6 +39,47 @@ function CockpitStrip() {
       <span className="text-[#8d91a6]">risk <span className="font-mono text-[#e2e4ef]">${fmtMoney(account.open_risk_usd)}</span></span>
       <ChevronRight className="w-4 h-4 text-[#4e5166] ml-auto" />
     </Link>
+  )
+}
+
+// Sync the selected perps account (or all, when "All Accounts" is active),
+// poll until the server-side sync finishes, then refresh the dashboard.
+function SyncButton() {
+  const qc = useQueryClient()
+  const { perpsAccountId } = useAccount()
+  const { data: accounts = [] } = useQuery({ queryKey: ['perps-accounts'], queryFn: fetchPerpsAccounts })
+  const [busy, setBusy] = useState(false)
+  if (accounts.length === 0) return null
+  const targets = perpsAccountId ? accounts.filter((a) => a.id === perpsAccountId) : accounts
+
+  async function doSync() {
+    if (busy || targets.length === 0) return
+    setBusy(true)
+    await Promise.all(targets.map((a) => syncPerpsAccount(a.id).catch(() => {})))
+    const ids = new Set(targets.map((a) => a.id))
+    let polls = 0
+    const poll = async () => {
+      polls += 1
+      const fresh = await fetchPerpsAccounts().catch(() => null)
+      if (fresh) qc.setQueryData(['perps-accounts'], fresh)
+      const stillSyncing = fresh && fresh.some((a) => ids.has(a.id) && a.is_syncing)
+      // Require ≥2 polls so a just-started sync registers; 120-poll (~5min) safety cap.
+      if ((!stillSyncing && polls >= 2) || polls > 120) {
+        setBusy(false)
+        qc.invalidateQueries()
+      } else {
+        setTimeout(poll, 2500)
+      }
+    }
+    setTimeout(poll, 2500)
+  }
+
+  return (
+    <button onClick={doSync} disabled={busy}
+      className="inline-flex items-center gap-1.5 text-[12px] text-[#8d91a6] hover:text-white border border-[#2a2c30] hover:border-[#4e5166] rounded-lg px-3 py-1.5 transition-colors disabled:opacity-60">
+      <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
+      {busy ? 'Syncing…' : 'Sync'}
+    </button>
   )
 }
 
@@ -96,6 +137,9 @@ export default function PerpsDashboard() {
   return (
     <DashboardCtx.Provider value={dashCtx}>
       <div className="space-y-4">
+        <div className="flex justify-end">
+          <SyncButton />
+        </div>
         <CockpitStrip />
         <TodayPlanCard workspace="perps" />
         <DashboardGrid registry={PERPS_WIDGET_REGISTRY} defaultLayout={PERPS_DEFAULT_LAYOUT}
