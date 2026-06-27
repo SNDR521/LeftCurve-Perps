@@ -400,9 +400,10 @@ export default function Reviews() {
             )}
           </div>
 
-          {/* Needs work zone */}
+          {/* Biggest losses zone */}
           <div className="space-y-3">
-            <h2 className="text-[13px] font-semibold text-[#de576f] uppercase tracking-[0.06em]">Needs work</h2>
+            <h2 className="text-[13px] font-semibold text-[#de576f] uppercase tracking-[0.06em]">Biggest losses</h2>
+            <p className="text-[11px] text-[#4e5166] -mt-1">Losses are normal in a profitable system. Review these for execution quality, not the outcome.</p>
 
             {/* Worst-3 trade cards */}
             {worst3.length > 0 && (
