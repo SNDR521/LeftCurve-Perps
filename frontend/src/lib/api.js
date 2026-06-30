@@ -169,6 +169,9 @@ export function fetchPerpsCockpit(params = {}) { const qs = new URLSearchParams(
 
 export function fetchPerpsPosition(id) { return perpsRequest(`/positions/${id}`) }
 export function fetchPerpsPositionDetail(key) { return perpsRequest(`/positions/detail?key=${encodeURIComponent(key)}`) }
+// Fallback for a position with no position_key: resolve by numeric id via the
+// still-served id route. (Keyed positions use the key route, which survives sync id churn.)
+export function fetchPerpsPositionDetailById(id) { return perpsRequest(`/positions/${id}/detail`) }
 export function fetchPerpsChartData(params) { const qs = new URLSearchParams(params).toString(); return perpsRequest(`/chart-data?${qs}`) }
 export function fetchPerpsJournalBulk() { return perpsRequest(`/journal/bulk`) }
 export async function uploadPerpsScreenshot(positionKey, file) {
