@@ -99,3 +99,47 @@ def fetch_hl_klines(coin: str, interval: str, start_ms: int, end_ms: int, client
         return client.candle_snapshot(coin, hl_iv, start_ms, end_ms)
     finally:
         client.close()
+
+
+# Bybit interval code -> minutes per bar (for aggregating RiseX's 1m bars).
+_CODE_MINUTES = {"1": 1, "3": 3, "5": 5, "15": 15, "30": 30, "60": 60,
+                 "120": 120, "240": 240, "360": 360, "720": 720, "D": 1440}
+
+
+def _aggregate(bars: list[dict], bucket_s: int) -> list[dict]:
+    """Aggregate ascending 1m OHLCV bars into fixed-width time buckets."""
+    if bucket_s <= 60:
+        return bars
+    buckets: dict[int, dict] = {}
+    for b in bars:  # bars are time-ascending, so first seen = open, last = close
+        k = (b["time"] // bucket_s) * bucket_s
+        agg = buckets.get(k)
+        if agg is None:
+            buckets[k] = {"time": k, "open": b["open"], "high": b["high"],
+                          "low": b["low"], "close": b["close"], "volume": b["volume"]}
+        else:
+            agg["high"] = max(agg["high"], b["high"])
+            agg["low"] = min(agg["low"], b["low"])
+            agg["close"] = b["close"]
+            agg["volume"] += b["volume"]
+    return [buckets[k] for k in sorted(buckets)]
+
+
+def fetch_risex_klines(symbol: str, interval: str, start_ms: int, end_ms: int, client=None) -> list[dict]:
+    """Ascending OHLCV from RiseX for a Bybit-style interval code. RiseX's
+    trading-view-data endpoint keys by numeric market_id and serves only 1m bars,
+    so we resolve the symbol -> market_id (public markets list) and aggregate the
+    1m bars up to the requested interval. `client` accepted for signature parity,
+    ignored (RiseX uses its own keyless market-data client). Raises if the symbol
+    is unknown (surfaced as a 502 -> the chart shows 'unavailable')."""
+    from app.config import get_settings
+    from app.perps.connectors.risex import RiseXClient
+    rc = RiseXClient("", get_settings().risex_api_base)  # public market data — no address
+    try:
+        market_id = next((mid for mid, name in rc.fetch_markets().items() if name == symbol), None)
+        if market_id is None:
+            raise RuntimeError(f"unknown RiseX market {symbol!r}")
+        bars = rc.candle_snapshot(market_id, start_ms, end_ms)
+    finally:
+        rc.close()
+    return _aggregate(bars, _CODE_MINUTES.get(interval, 1) * 60)

@@ -240,6 +240,8 @@ function StopCell({ accountId, symbol, stopPrice, stopSource }) {
   )
 }
 
+const VENUE_LABEL = { BYBIT: 'Bybit', HYPERLIQUID: 'Hyperliquid', RISEX: 'RiseX' }
+
 const COLUMNS = ['Symbol', 'Side', 'Size', 'Entry', 'Mark', 'uPnL', 'R', 'Lev', 'Liq', 'Funding', 'Proj/24h', 'Accrued', 'Stop']
 
 export default function PerpsCockpit() {
@@ -254,7 +256,9 @@ export default function PerpsCockpit() {
   // Stream marks from each venue's WS and merge. Bybit perps are USDT-quoted and
   // Hyperliquid uses bare coins, so the two symbol sets are disjoint — partition by
   // suffix so each socket only opens for the venue actually on screen.
-  const symbols = (data?.positions ?? []).map((p) => p.symbol)
+  // de-dup: in the aggregate view two accounts can hold the same symbol; each
+  // venue WS only needs one subscription per symbol.
+  const symbols = [...new Set((data?.positions ?? []).map((p) => p.symbol))]
   const bybitSyms = symbols.filter((s) => s.endsWith('USDT'))
   const hlSyms = symbols.filter((s) => !s.endsWith('USDT'))
   const { marks: bybitMarks, connected: bybitConn } = useLiveMarks(bybitSyms)
@@ -384,6 +388,12 @@ export default function PerpsCockpit() {
         </StatBlock>
       </div>
 
+      {data.unavailable?.length > 0 && (
+        <p className="text-[12px] text-[#4e5166]">
+          Couldn't reach: {data.unavailable.map((v) => VENUE_LABEL[v] ?? v).join(', ')}
+        </p>
+      )}
+
       {plan === null && (
         <Link to="/plan" className="inline-block text-[12px] text-[#4e5166] hover:text-[#8d91a6] transition-colors">
           no plan today → set one
@@ -415,8 +425,11 @@ export default function PerpsCockpit() {
                   : ''
                 const countdown = p.funding_rate ? fundingCountdown(p.next_funding_at) : null
                 return (
-                  <tr key={p.symbol} className={rowClass}>
-                    <td data-label="Symbol"><span className="text-[13px] font-semibold text-[#fcfefd]">{p.symbol}</span></td>
+                  <tr key={`${p.account_id}:${p.symbol}`} className={rowClass}>
+                    <td data-label="Symbol">
+                      <span className="text-[13px] font-semibold text-[#fcfefd]">{p.symbol}</span>
+                      {p.venue && <span className="badge text-[10px] ml-1.5 bg-[#4e5166]/20 text-[#8d91a6]">{VENUE_LABEL[p.venue] ?? p.venue}</span>}
+                    </td>
                     <td data-label="Side">
                       <span className={`badge text-[11px] font-semibold ${
                         p.direction === 'LONG' ? 'bg-[#00d4aa]/10 text-[#00d4aa]' : 'bg-[#de576f]/10 text-[#de576f]'
@@ -458,7 +471,7 @@ export default function PerpsCockpit() {
                       <span className={`font-mono text-[12px] ${pnlColor(p.accrued_funding)}`}>{signedUsd(p.accrued_funding)}</span>
                     </td>
                     <td data-label="Stop" style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                      <StopCell accountId={account.account_id} symbol={p.symbol} stopPrice={p.stop_price} stopSource={p.stop_source} />
+                      <StopCell accountId={p.account_id} symbol={p.symbol} stopPrice={p.stop_price} stopSource={p.stop_source} />
                     </td>
                   </tr>
                 )

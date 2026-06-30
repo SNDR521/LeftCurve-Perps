@@ -74,6 +74,8 @@ const ACCENT_SWATCHES = [
 
 function AppearanceSection() {
   const { prefs, updatePrefs } = usePreferences()
+  const showPlan = prefs?.show_plan_header !== false
+  const showCockpit = prefs?.show_cockpit_header !== false
   const tickerBar = prefs.ticker_bar ?? { enabled: true, symbols: [] }
   const accent = prefs.theme?.accent || '#38bdf8'
   const density = prefs.theme?.density || 'comfortable'
@@ -244,6 +246,54 @@ function AppearanceSection() {
           <span
             className={`absolute top-0.5 left-0.5 bg-white rounded-full shadow transition-transform ${
               tickerBar.enabled ? 'translate-x-[1.125rem]' : 'translate-x-0'
+            }`}
+            style={{ width: '1.125rem', height: '1.125rem' }}
+          />
+        </button>
+      </div>
+
+      {/* Daily plan header toggle */}
+      <div className="border-t border-[#2a2c30] pt-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[13px] text-[#e2e4ef]">Daily plan on dashboard</p>
+          <p className="text-[11px] text-[#4e5166] mt-0.5">Show the daily plan card at the top of the dashboard</p>
+        </div>
+        <button
+          onClick={() => updatePrefs({ show_plan_header: !showPlan })}
+          className={`relative inline-flex rounded-full transition-colors focus:outline-none ${
+            showPlan ? 'bg-[var(--accent)]' : 'bg-[#2a2c30]'
+          }`}
+          style={{ minWidth: '2.5rem', width: '2.5rem', height: '1.375rem' }}
+          aria-checked={showPlan}
+          role="switch"
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 bg-white rounded-full shadow transition-transform ${
+              showPlan ? 'translate-x-[1.125rem]' : 'translate-x-0'
+            }`}
+            style={{ width: '1.125rem', height: '1.125rem' }}
+          />
+        </button>
+      </div>
+
+      {/* Cockpit summary header toggle */}
+      <div className="border-t border-[#2a2c30] pt-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[13px] text-[#e2e4ef]">Cockpit summary on dashboard</p>
+          <p className="text-[11px] text-[#4e5166] mt-0.5">Show the live cockpit summary strip on the dashboard</p>
+        </div>
+        <button
+          onClick={() => updatePrefs({ show_cockpit_header: !showCockpit })}
+          className={`relative inline-flex rounded-full transition-colors focus:outline-none ${
+            showCockpit ? 'bg-[var(--accent)]' : 'bg-[#2a2c30]'
+          }`}
+          style={{ minWidth: '2.5rem', width: '2.5rem', height: '1.375rem' }}
+          aria-checked={showCockpit}
+          role="switch"
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 bg-white rounded-full shadow transition-transform ${
+              showCockpit ? 'translate-x-[1.125rem]' : 'translate-x-0'
             }`}
             style={{ width: '1.125rem', height: '1.125rem' }}
           />

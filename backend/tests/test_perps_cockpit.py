@@ -222,9 +222,11 @@ def test_cockpit_endpoint(appdb):
     r = c.get("/api/perps/cockpit")
     assert r.status_code == 200
     body = r.json()
-    assert set(body) == {"asof", "plan", "account", "positions"}
+    # aggregate path (no account_id): response includes "unavailable" key
+    assert set(body) == {"asof", "plan", "account", "positions", "unavailable"}
     assert body["plan"] is None  # no plan card seeded for this user
-    assert body["account"]["account_id"] == aid
+    assert body["account"]["account_id"] is None  # aggregate: always null
+    assert body["unavailable"] == []              # no venues failed
     assert len(body["positions"]) == 1
     assert body["positions"][0]["symbol"] == "ETHUSDT"
 
@@ -436,3 +438,83 @@ def test_cockpit_endpoint_serves_hyperliquid(monkeypatch):
     body = r.json()
     assert body["account"]["account_id"] == aid
     assert body["positions"][0]["symbol"] == "ETHUSDT"
+
+
+# --- Task 1 (multi-account cockpit): composable pieces + aggregate ----------
+
+from app.perps.services.cockpit import (
+    _account_live, _session_block, build_cockpit_aggregate,
+)
+from app.perps.models import ExchangeAccount, Venue, Position, PositionStatus, AssetClass, Direction
+
+
+class _FakeClient:
+    """Two open positions, configurable, Bybit-compatible shapes."""
+    def __init__(self, rows, equity=1000.0):
+        self._rows = rows
+        self._equity = equity
+    def fetch_open_positions(self):
+        return self._rows
+    def fetch_tickers(self, symbols=None):
+        return {r["symbol"]: {"mark_price": float(r["avgPrice"]), "funding_rate": 0.0,
+                              "next_funding_time": 0} for r in self._rows}
+    def fetch_wallet_balance(self):
+        return {"equity": self._equity, "balance": self._equity, "available": self._equity}
+
+
+def _acct(s, u, venue, label):
+    a = ExchangeAccount(user_id=u.id, venue=venue, label=label)
+    s.add(a); s.commit(); s.refresh(a)
+    return a
+
+
+def test_account_live_tags_positions_and_sums(db):
+    s, u, _ = db
+    a = _acct(s, u, Venue.RISEX, "RiseX")
+    rows = [{"symbol": "HYPE/USDC", "side": "Sell", "size": "2", "avgPrice": "100",
+             "unrealisedPnl": "5", "stopLoss": "110", "leverage": "10", "tradeMode": 0}]
+    live = _account_live(s, a, _FakeClient(rows, equity=500.0))
+    assert live["equity"] == 500.0 and live["open_upnl"] == 5.0
+    p = live["positions"][0]
+    assert p["venue"] == "RISEX" and p["account_id"] == a.id and p["account_label"] == "RiseX"
+    assert p["direction"] == "SHORT" and p["risk_usd"] == 20.0   # |100-110|*2
+
+
+def test_aggregate_sums_live_and_computes_session_once(db):
+    s, u, _ = db
+    a1 = _acct(s, u, Venue.BYBIT, "Bybit")
+    a2 = _acct(s, u, Venue.RISEX, "RiseX")
+    # one closed position TODAY on a1 -> workspace realized = its pnl (no plan card)
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    s.add(Position(user_id=u.id, exchange_account_id=a1.id, symbol="BTCUSDT",
+                   asset_class=AssetClass.PERP, direction=Direction.LONG,
+                   status=PositionStatus.CLOSED, opened_at=now, closed_at=now,
+                   avg_entry=1.0, avg_exit=2.0, quantity=1.0, realized_pnl=50.0,
+                   total_fees=0.0, total_funding=0.0, position_key="x:y:cpnl:1"))
+    s.commit()
+    live1 = _account_live(s, a1, _FakeClient(
+        [{"symbol": "BTCUSDT", "side": "Buy", "size": "1", "avgPrice": "100",
+          "unrealisedPnl": "10", "stopLoss": "90", "leverage": "5", "tradeMode": 0}], equity=1000.0))
+    live2 = _account_live(s, a2, _FakeClient(
+        [{"symbol": "HYPE/USDC", "side": "Sell", "size": "2", "avgPrice": "50",
+          "unrealisedPnl": "4", "stopLoss": "55", "leverage": "10", "tradeMode": 0}], equity=500.0))
+    agg = build_cockpit_aggregate(s, u.id, [live1, live2], unavailable=["HYPERLIQUID"])
+    acc = agg["account"]
+    assert acc["account_id"] is None
+    assert acc["equity"] == 1500.0                      # 1000 + 500
+    assert acc["open_upnl"] == 14.0                     # 10 + 4
+    assert acc["realized_today"] == 50.0                # workspace total, NOT doubled
+    assert acc["session_pnl"] == 64.0                   # 50 + 14
+    assert acc["open_risk_usd"] == 20.0                 # |100-90|*1 + |50-55|*2 = 10 + 10
+    assert len(agg["positions"]) == 2
+    assert {p["venue"] for p in agg["positions"]} == {"BYBIT", "RISEX"}
+    assert agg["unavailable"] == ["HYPERLIQUID"]
+
+
+def test_single_build_cockpit_unchanged_shape(db):
+    s, u, acc = db
+    out = build_cockpit(s, acc, FakeCockpitClient())
+    assert out["account"]["account_id"] == acc.id
+    assert "equity" in out["account"] and "open_risk_usd" in out["account"]
+    assert "plan" in out and "positions" in out

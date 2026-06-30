@@ -79,3 +79,21 @@ def test_preferences_require_auth():
     c = TestClient(app)
     assert c.get("/api/preferences").status_code == 401
     assert c.put("/api/preferences", json={}).status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# DEFAULT_PREFS defaults + _merged preservation
+# ---------------------------------------------------------------------------
+
+def test_default_prefs_have_header_toggles_on():
+    from app.core.preferences import DEFAULT_PREFS
+    assert DEFAULT_PREFS["show_plan_header"] is True
+    assert DEFAULT_PREFS["show_cockpit_header"] is True
+
+
+def test_merged_preserves_header_override():
+    from app.core.preferences import _merged
+    merged = _merged({"show_plan_header": False})
+    assert merged["show_plan_header"] is False        # user override kept
+    assert merged["show_cockpit_header"] is True       # other default intact
+    assert merged["default_period"] == "all"           # unrelated defaults intact

@@ -35,9 +35,10 @@ def list_accounts(user: User = Depends(get_current_user), db: Session = Depends(
 @router.post("", response_model=ExchangeAccountOut)
 def create_account(body: ExchangeAccountCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     acc = ExchangeAccount(user_id=user.id, venue=body.venue, label=body.label)
-    if body.venue == Venue.HYPERLIQUID:
+    if body.venue in (Venue.HYPERLIQUID, Venue.RISEX):
         if not body.address:
-            raise HTTPException(status_code=422, detail="Hyperliquid account needs a wallet address")
+            raise HTTPException(status_code=422,
+                                detail=f"{body.venue.value} account needs a wallet address")
         acc.encrypted_credentials = encrypt_credentials({"address": body.address})
     elif body.api_key and body.api_secret:
         acc.encrypted_credentials = encrypt_credentials(
