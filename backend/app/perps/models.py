@@ -13,6 +13,7 @@ class Venue(str, enum.Enum):
     BYBIT = "BYBIT"
     HYPERLIQUID = "HYPERLIQUID"
     LIGHTER = "LIGHTER"
+    RISEX = "RISEX"
 
 
 class AssetClass(str, enum.Enum):

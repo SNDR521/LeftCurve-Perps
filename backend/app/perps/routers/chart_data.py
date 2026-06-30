@@ -8,7 +8,9 @@ from app.database import get_db
 from app.core.deps import get_current_user
 from app.core.models import User
 from app.perps.models import ExchangeAccount, Venue
-from app.perps.services.candles import VALID_INTERVALS, choose_interval, fetch_klines, fetch_hl_klines
+from app.perps.services.candles import (
+    VALID_INTERVALS, choose_interval, fetch_klines, fetch_hl_klines, fetch_risex_klines,
+)
 
 router = APIRouter(prefix="/chart-data", tags=["perps-chart"])
 
@@ -45,6 +47,8 @@ def get_chart_data(symbol: str, from_ts: int, to_ts: int, interval: str | None =
     try:
         if venue == Venue.HYPERLIQUID:
             candles = fetch_hl_klines(symbol, iv, from_ts * 1000, to_ts * 1000)
+        elif venue == Venue.RISEX:
+            candles = fetch_risex_klines(symbol, iv, from_ts * 1000, to_ts * 1000)
         else:
             candles = fetch_klines(symbol, iv, from_ts * 1000, to_ts * 1000)
     except Exception as e:  # noqa: BLE001 — surface upstream failure as 502

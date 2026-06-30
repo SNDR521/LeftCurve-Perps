@@ -9,6 +9,9 @@ load_dotenv(_ENV_FILE, override=False)
 
 
 class Settings(BaseSettings):
+    # RiseX
+    risex_api_base: str = "https://api.rise.trade"
+
     # Finnhub (News feed — optional)
     finnhub_api_key: str = ""
 
