@@ -20,8 +20,8 @@ from app.config import get_settings
 from app.core.security import decrypt_credentials
 from app.perps.connectors.risex import RiseXClient
 from app.perps.models import (
-    ExchangeAccount, BalanceSnapshot, Fill, Position, AssetClass, Side, Direction,
-    PositionStatus, OpenedAtSource,
+    ExchangeAccount, BalanceSnapshot, Fill, Position, PositionFill,
+    AssetClass, Side, Direction, PositionStatus, OpenedAtSource,
 )
 
 log = logging.getLogger(__name__)
@@ -80,6 +80,9 @@ def _episode_to_row(account, symbol: str, epi: dict) -> dict:
         position_key=f"{account.id}:{symbol}:rt:{epi['last_id']}",
         opened_at_source=OpenedAtSource.EXACT,  # real open+close times from fills
         leverage=None,
+        # fill_ids is NOT a Position column — it is popped by the caller (sync_account)
+        # before constructing the Position ORM object, and used to create PositionFill links.
+        fill_ids=list(epi.get("fill_ids", [])),
     )
 
 
@@ -104,7 +107,8 @@ def build_closed_positions(account, views: list[dict]) -> list[dict]:
                 epi = {"ps": ps, "open_qty": 0.0, "close_qty": 0.0,
                        "entry_notional": 0.0, "exit_notional": 0.0,
                        "pnl": 0.0, "fees": 0.0,
-                       "open_ns": f["time_ns"], "close_ns": f["time_ns"], "last_id": f["id"]}
+                       "open_ns": f["time_ns"], "close_ns": f["time_ns"], "last_id": f["id"],
+                       "fill_ids": []}
             sz = f["size"]
             if f["side"] == ps:  # entry (adds to position)
                 epi["open_qty"] += sz
@@ -116,6 +120,7 @@ def build_closed_positions(account, views: list[dict]) -> list[dict]:
             epi["fees"] += f["fee"]
             epi["close_ns"] = f["time_ns"]
             epi["last_id"] = f["id"]
+            epi["fill_ids"].append(f["id"])
             if epi["open_qty"] > _EPS and epi["close_qty"] >= epi["open_qty"] - _EPS:
                 out.append(_episode_to_row(account, symbol, epi))
                 epi = None
@@ -276,13 +281,39 @@ def sync_account(db: Session, account: ExchangeAccount) -> dict:
         # rebuild stays correct + idempotent — mirrors hyperliquid_sync). ---
         views = [_fill_view(r) for r in
                  db.query(Fill).filter(Fill.exchange_account_id == account.id).all()]
+        # Explicitly delete PositionFill links for this account's closed positions BEFORE
+        # deleting the positions themselves. SQLite does not enforce FK cascades, so
+        # relying on ondelete="CASCADE" alone would leave orphan rows in SQLite test DBs.
+        # On Postgres the cascade would fire, but being explicit keeps both dialects clean
+        # and prevents link accumulation across re-syncs.
+        closed_pos_ids = [r[0] for r in db.query(Position.id).filter(
+            Position.exchange_account_id == account.id,
+            Position.status == PositionStatus.CLOSED).all()]
+        if closed_pos_ids:
+            db.query(PositionFill).filter(
+                PositionFill.position_id.in_(closed_pos_ids)
+            ).delete(synchronize_session=False)
         db.query(Position).filter(
             Position.exchange_account_id == account.id,
             Position.status == PositionStatus.CLOSED,
         ).delete(synchronize_session=False)
+        # Build a lookup from external_fill_id -> Fill.id for this account so we can
+        # resolve the external ids in each round-trip's fill_ids list.
+        fill_id_by_ext = {ext: fid for ext, fid in db.query(Fill.external_fill_id, Fill.id).filter(
+            Fill.exchange_account_id == account.id).all()}
+        pending: list[tuple] = []  # (Position, [external_fill_id, ...])
         for row in build_closed_positions(account, views):
-            db.add(Position(**row))
+            fill_ids = row.pop("fill_ids", [])
+            pos = Position(**row)
+            db.add(pos)
+            pending.append((pos, fill_ids))
             summary["closed_added"] += 1
+        db.flush()  # assign pos.id before creating PositionFill links
+        for pos, fill_ids in pending:
+            for ext_id in fill_ids:
+                fid = fill_id_by_ext.get(ext_id)
+                if fid is not None:
+                    db.add(PositionFill(position_id=pos.id, fill_id=fid))
         db.commit()
 
         # --- 3. Open positions: full snapshot replace ---
