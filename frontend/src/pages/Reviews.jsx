@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import { fetchReviewDraft, fetchReview, saveReview } from '../lib/api'
+import { encodePositionKey } from '../lib/positionKey'
 
 const signedUsd = (n) => {
   if (n == null) return '—'
@@ -110,7 +111,7 @@ function TradeCard({ t, tone }) {
   const borderColor = tone === 'win' ? 'border-[#00d4aa]' : 'border-[#de576f]'
   return (
     <Link
-      to={`/trades/${t.id}`}
+      to={`/trades/${t.position_key ? encodePositionKey(t.position_key) : t.id}`}
       className={`block card border ${borderColor} px-3 py-2 hover:bg-[#242629] transition-colors min-w-0`}
     >
       <div className="flex items-center gap-2 justify-between">
@@ -225,7 +226,7 @@ function AllTradesList({ trades }) {
                   <tr key={t.id}
                     className={`hover:bg-[#242629] transition-colors ${!isWin ? 'bg-[#de576f]/5' : ''}`}>
                     <td className="px-5 py-2">
-                      <Link to={`/trades/${t.id}`}
+                      <Link to={`/trades/${t.position_key ? encodePositionKey(t.position_key) : t.id}`}
                         className="font-medium text-white hover:text-[var(--accent)] transition-colors flex items-center gap-1.5">
                         {!isWin && <span className="text-[#de576f] text-[10px]">⚑</span>}
                         {t.symbol}

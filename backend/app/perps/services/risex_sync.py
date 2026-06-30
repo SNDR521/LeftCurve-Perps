@@ -20,7 +20,7 @@ from app.config import get_settings
 from app.core.security import decrypt_credentials
 from app.perps.connectors.risex import RiseXClient
 from app.perps.models import (
-    ExchangeAccount, Fill, Position, AssetClass, Side, Direction,
+    ExchangeAccount, BalanceSnapshot, Fill, Position, AssetClass, Side, Direction,
     PositionStatus, OpenedAtSource,
 )
 
@@ -120,6 +120,73 @@ def build_closed_positions(account, views: list[dict]) -> list[dict]:
                 out.append(_episode_to_row(account, symbol, epi))
                 epi = None
     return out
+
+
+def build_balance_snapshots(account, realized_now: float, events: list[dict],
+                            transfers: list[dict]) -> list[dict]:
+    """Reconstruct daily-last balance snapshots + transfer markers.
+
+    `events`: realized-pnl deltas [{ts_ns, delta=pnl+funding}].
+    `transfers`: [{ts_ns, delta=signed_amount, kind="TRANSFER_IN"/"TRANSFER_OUT"}].
+    Anchor: the running balance after ALL events/transfers == realized_now. So
+    initial = realized_now - sum(all deltas); walk ascending accumulating; the
+    daily-last running balance is each day's SNAPSHOT. Returns row dicts
+    {ts(naive UTC datetime), balance, kind}."""
+    # Drop events with an unparseable/zero timestamp — they can't be placed on the
+    # time axis (a 0 ts would land at 1970-01-01 and wreck the chart's x-range).
+    # The anchor stays correct: a dropped delta is absorbed into the initial baseline.
+    combined = sorted([e for e in (*events, *transfers) if e["ts_ns"] > 0],
+                      key=lambda e: e["ts_ns"])
+    total = sum(e["delta"] for e in combined)
+    running = realized_now - total
+    out: list[dict] = []
+    daily_last: dict = {}  # day(naive midnight) -> (ts_ns, balance)
+    for e in combined:
+        running += e["delta"]
+        when = datetime.fromtimestamp(e["ts_ns"] / 1_000_000_000, tz=timezone.utc).replace(tzinfo=None)
+        if e.get("kind", "").startswith("TRANSFER"):
+            out.append({"ts": when, "balance": running, "kind": e["kind"]})
+        day = when.replace(hour=0, minute=0, second=0, microsecond=0)
+        prev = daily_last.get(day)
+        if prev is None or e["ts_ns"] >= prev[0]:
+            daily_last[day] = (e["ts_ns"], running)
+    if not daily_last:  # no events at all -> a single point at today's anchor
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+        daily_last[today] = (0, realized_now)
+    for day, (_, bal) in daily_last.items():
+        out.append({"ts": day, "balance": bal, "kind": "SNAPSHOT"})
+    return out
+
+
+def _rebuild_balance_snapshots(db: Session, account: ExchangeAccount, client) -> int:
+    """Wipe + rebuild this account's BalanceSnapshot rows from the current
+    realized balance + realized-pnl/funding + transfer history."""
+    summary = (client.fetch_portfolio().get("summary") or {})
+    realized_now = float(summary.get("total_account_value") or 0.0) - \
+                   float(summary.get("total_unrealized_pnl") or 0.0)
+    now_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
+    start_ns = now_ns - BACKFILL_NS
+    events = [{"ts_ns": int(ev["timestamp"]),
+               "delta": float(ev.get("pnl") or 0.0) + float(ev.get("funding") or 0.0)}
+              for ev in client.iter_realized_pnl(start_ns, now_ns)]
+    transfers = []
+    for t in client.iter_transfers(start_ns, now_ns):
+        amt = abs(float(t.get("amount") or 0.0))
+        # Real RiseX transfer shape: {"type": "DEPOSIT"/"WITHDRAW...",
+        # "amount": "<positive>", "block_time": "<ns>"}. Deposits add, withdrawals
+        # subtract; timestamp is block_time (ns).
+        is_in = str(t.get("type") or "").upper().startswith("DEP")
+        transfers.append({"ts_ns": int(t.get("block_time") or 0),
+                          "delta": amt if is_in else -amt,
+                          "kind": "TRANSFER_IN" if is_in else "TRANSFER_OUT"})
+    rows = build_balance_snapshots(account, realized_now, events, transfers)
+    db.query(BalanceSnapshot).filter(
+        BalanceSnapshot.exchange_account_id == account.id).delete(synchronize_session=False)
+    for r in rows:
+        db.add(BalanceSnapshot(user_id=account.user_id, exchange_account_id=account.id,
+                               ts=r["ts"], balance=r["balance"], kind=r["kind"]))
+    db.commit()
+    return len(rows)
 
 
 def _fill_to_row(account, t, symbol: str) -> dict:
@@ -227,6 +294,12 @@ def sync_account(db: Session, account: ExchangeAccount) -> dict:
             db.add(Position(**_open_position_to_row(account, r)))
             summary["open_count"] += 1
         db.commit()
+
+        # --- 4. Reconstruct the true-equity balance snapshots (failure-isolated) ---
+        try:
+            summary["balance_rows"] = _rebuild_balance_snapshots(db, account, client)
+        except Exception:  # noqa: BLE001 — never fail the sync over the equity curve
+            log.exception("risex balance snapshot rebuild failed for account %s", account.id)
 
         account.sync_cursor = str(max_ns)
         account.last_synced_at = datetime.now(timezone.utc)

@@ -168,7 +168,7 @@ export function fetchPerpsEquity(params = {}) { const qs = new URLSearchParams(p
 export function fetchPerpsCockpit(params = {}) { const qs = new URLSearchParams(params).toString(); return perpsRequest(`/cockpit${qs ? '?' + qs : ''}`) }
 
 export function fetchPerpsPosition(id) { return perpsRequest(`/positions/${id}`) }
-export function fetchPerpsPositionDetail(id) { return perpsRequest(`/positions/${id}/detail`) }
+export function fetchPerpsPositionDetail(key) { return perpsRequest(`/positions/detail?key=${encodeURIComponent(key)}`) }
 export function fetchPerpsChartData(params) { const qs = new URLSearchParams(params).toString(); return perpsRequest(`/chart-data?${qs}`) }
 export function fetchPerpsJournalBulk() { return perpsRequest(`/journal/bulk`) }
 export async function uploadPerpsScreenshot(positionKey, file) {

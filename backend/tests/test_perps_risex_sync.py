@@ -195,3 +195,144 @@ def test_sync_progress_fields_populated(db, monkeypatch):
     prog = acc.sync_progress
     for key in ("from_ms", "to_ms", "cursor_ms", "fills"):
         assert key in prog, f"sync_progress missing key: {key}"
+
+
+# --- balance snapshot reconstruction tests ---
+
+from app.perps.services.risex_sync import build_balance_snapshots  # noqa: E402
+from app.perps.models import BalanceSnapshot  # noqa: E402
+
+NS_DAY = 86_400 * 1_000_000_000
+D0 = 1_782_000_000 * 1_000_000_000  # an arbitrary ns anchor day start-ish
+
+
+def test_build_balance_snapshots_no_transfers_anchors_to_realized_now(db):
+    _, _, acc = db
+    # two realized-pnl events: +10 on day A, -4 on day B; realized_now = 106.
+    events = [
+        {"ts_ns": D0 + 1 * NS_DAY, "delta": 10.0},
+        {"ts_ns": D0 + 2 * NS_DAY, "delta": -4.0},
+    ]
+    rows = build_balance_snapshots(acc, realized_now=106.0, events=events, transfers=[])
+    snaps = [r for r in rows if r["kind"] == "SNAPSHOT"]
+    # initial = 106 - (10 - 4) = 100; after day A = 110; after day B = 106
+    vals = [r["balance"] for r in sorted(snaps, key=lambda r: r["ts"])]
+    assert vals[0] == 110.0          # end of day A (initial 100 + 10)
+    assert vals[-1] == 106.0         # latest snapshot == realized_now (anchor)
+    assert all(r["kind"] == "SNAPSHOT" for r in snaps)
+
+
+def test_build_balance_snapshots_daily_last_wins(db):
+    _, _, acc = db
+    # two events same day -> only the day-last running balance is the snapshot
+    events = [
+        {"ts_ns": D0 + 5_000, "delta": 10.0},
+        {"ts_ns": D0 + 9_000, "delta": -2.0},
+    ]
+    rows = build_balance_snapshots(acc, realized_now=8.0, events=events, transfers=[])
+    snaps = [r for r in rows if r["kind"] == "SNAPSHOT"]
+    assert len(snaps) == 1 and snaps[0]["balance"] == 8.0   # initial 0 +10 -2 = 8
+
+
+def test_build_balance_snapshots_transfer_marker_and_shift(db):
+    _, _, acc = db
+    events = [{"ts_ns": D0 + 1 * NS_DAY, "delta": 5.0}]
+    transfers = [{"ts_ns": D0 + 1 * NS_DAY + 100, "delta": 50.0, "kind": "TRANSFER_IN"}]
+    rows = build_balance_snapshots(acc, realized_now=155.0, events=events, transfers=transfers)
+    markers = [r for r in rows if r["kind"] == "TRANSFER_IN"]
+    snaps = [r for r in rows if r["kind"] == "SNAPSHOT"]
+    assert len(markers) == 1
+    assert sorted(snaps, key=lambda r: r["ts"])[-1]["balance"] == 155.0  # anchor preserved
+
+
+def test_build_balance_snapshots_no_events_single_point(db):
+    _, _, acc = db
+    rows = build_balance_snapshots(acc, realized_now=500.0, events=[], transfers=[])
+    snaps = [r for r in rows if r["kind"] == "SNAPSHOT"]
+    assert len(snaps) == 1 and snaps[0]["balance"] == 500.0
+
+
+class _FakeClientWithPortfolio:
+    """Extends _FakeClient pattern: also implements fetch_portfolio() and
+    iter_transfers() so _rebuild_balance_snapshots can run end-to-end."""
+    def __init__(self):
+        self.closed = False
+    def fetch_markets(self):
+        return {1: "BTC/USDC"}
+    def market_name(self, mid):
+        return {1: "BTC/USDC"}.get(int(mid), f"MKT{mid}")
+    def iter_realized_pnl(self, a, b):
+        # One realized-pnl event to produce a snapshot
+        yield {"timestamp": 1_782_000_000 * 1_000_000_000, "pnl": 5.0, "funding": 0.0}
+    def iter_trade_history(self, a, b):
+        return iter([
+            {"id": "f1", "order_id": "o1", "market_id": 1, "side": "BUY",
+             "position_side": "BUY", "price": "60000", "size": "1", "fee": "0.5",
+             "realized_pnl": "-0.5", "time": 1_782_000_000 * 1_000_000_000},
+        ])
+    def fetch_open_positions(self):
+        return []
+    def fetch_portfolio(self):
+        # Response structure matching what RiseX API returns
+        return {
+            "summary": {
+                "total_account_value": "110",
+                "total_unrealized_pnl": "0",
+                "usdc_balance": "110"
+            },
+            "positions": []
+        }
+    def iter_transfers(self, start_ns, end_ns):
+        # No transfers: just return without yielding
+        return
+        yield  # noqa: F501 — unreachable, but syntactically valid generator
+    def close(self):
+        self.closed = True
+
+
+def test_sync_account_writes_balance_snapshots(db, monkeypatch):
+    """End-to-end: sync_account with _rebuild_balance_snapshots wired in;
+    assert BalanceSnapshot rows are written to the database."""
+    s, _, acc = db
+    monkeypatch.setattr(risex_sync, "_client_for", lambda account: _FakeClientWithPortfolio())
+    summary = risex_sync.sync_account(s, acc)
+    assert summary["error"] is None
+    # Assert that balance snapshots were actually written (end-to-end rebuild ran)
+    snapshot_count = s.query(BalanceSnapshot).filter_by(exchange_account_id=acc.id).count()
+    assert snapshot_count >= 1, f"Expected >= 1 BalanceSnapshot, got {snapshot_count}"
+
+
+def test_build_balance_snapshots_drops_zero_ts(db):
+    """An event with a zero/unparseable ts must not create a 1970-01-01 point; its
+    delta is absorbed into the baseline so the anchor (latest snapshot) is preserved."""
+    _, _, acc = db
+    events = [
+        {"ts_ns": 0, "delta": 50.0},                        # bad ts -> dropped from axis
+        {"ts_ns": 1_782_000_000 * 1_000_000_000, "delta": 5.0},
+    ]
+    rows = build_balance_snapshots(acc, realized_now=155.0, events=events, transfers=[])
+    snaps = [r for r in rows if r["kind"] == "SNAPSHOT"]
+    assert all(r["ts"].year >= 2000 for r in snaps)         # no 1970 point
+    assert sorted(snaps, key=lambda r: r["ts"])[-1]["balance"] == 155.0  # anchor preserved
+
+
+class _FakeClientWithDeposit(_FakeClientWithPortfolio):
+    """Yields a real-shaped DEPOSIT transfer (type/amount/block_time)."""
+    def iter_transfers(self, start_ns, end_ns):
+        yield {"type": "DEPOSIT", "amount": "100.0",
+               "block_time": str(1_782_000_000 * 1_000_000_000)}
+
+
+def test_rebuild_parses_deposit_transfer(db, monkeypatch):
+    """A real-shaped DEPOSIT transfer yields a correctly-dated TRANSFER_IN marker
+    (parsed from block_time), never a 1970 point."""
+    s, _, acc = db
+    monkeypatch.setattr(risex_sync, "_client_for", lambda account: _FakeClientWithDeposit())
+    risex_sync.sync_account(s, acc)
+    markers = s.query(BalanceSnapshot).filter(
+        BalanceSnapshot.exchange_account_id == acc.id,
+        BalanceSnapshot.kind == "TRANSFER_IN").all()
+    assert len(markers) == 1 and markers[0].ts.year >= 2000   # block_time parsed, not 0->1970
+    snaps = s.query(BalanceSnapshot).filter_by(
+        exchange_account_id=acc.id, kind="SNAPSHOT").all()
+    assert snaps and all(r.ts.year >= 2000 for r in snaps)    # no 1970 snapshot
