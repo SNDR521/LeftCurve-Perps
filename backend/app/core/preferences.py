@@ -24,6 +24,8 @@ DEFAULT_PREFS = {
     "pnl_view": "dollars",
     "landing": {"path": "/"},
     "theme": {"accent": "#38bdf8", "density": "comfortable"},
+    "show_plan_header": True,
+    "show_cockpit_header": True,
 }
 
 def _merged(stored):

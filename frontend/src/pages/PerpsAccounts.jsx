@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Wallet, Trash2, RefreshCw } from 'lucide-react'
 import { fetchPerpsAccounts, createPerpsAccount, deletePerpsAccount, syncPerpsAccount } from '../lib/api'
 
-const VENUES = ['BYBIT', 'HYPERLIQUID']
+const VENUES = ['BYBIT', 'HYPERLIQUID', 'RISEX']
 
 function SyncProgress({ p }) {
   if (!p || p.state !== 'running') return null
@@ -86,7 +86,7 @@ export default function PerpsAccounts() {
     mutationFn: () => {
       const data = { venue, label }
       if (venue === 'BYBIT' && apiKey) { data.api_key = apiKey; data.api_secret = apiSecret }
-      if (venue === 'HYPERLIQUID' && address) { data.address = address.trim() }
+      if ((venue === 'HYPERLIQUID' || venue === 'RISEX') && address) { data.address = address.trim() }
       return createPerpsAccount(data)
     },
     onSuccess: () => {
@@ -135,7 +135,7 @@ export default function PerpsAccounts() {
               </label>
             </>
           )}
-          {venue === 'HYPERLIQUID' && (
+          {(venue === 'HYPERLIQUID' || venue === 'RISEX') && (
             <label className="text-[12px] text-[#8d91a6] flex-1 min-w-[260px]">
               Wallet address
               <input value={address} onChange={(e) => setAddress(e.target.value)}
@@ -143,7 +143,7 @@ export default function PerpsAccounts() {
             </label>
           )}
           <button className="btn-blue"
-                  disabled={!label || create.isPending || (venue === 'HYPERLIQUID' && !address)}
+                  disabled={!label || create.isPending || ((venue === 'HYPERLIQUID' || venue === 'RISEX') && !address)}
                   onClick={() => create.mutate()}>Add account</button>
         </div>
         {venue === 'BYBIT' && (
@@ -151,6 +151,9 @@ export default function PerpsAccounts() {
         )}
         {venue === 'HYPERLIQUID' && (
           <p className="text-[11px] text-[#4e5166] mt-2">Read-only: paste your Hyperliquid wallet address (no keys needed).</p>
+        )}
+        {venue === 'RISEX' && (
+          <p className="text-[11px] text-[#4e5166] mt-2">Read-only: paste your RiseX wallet address (no keys needed).</p>
         )}
         {error && <p className="text-[12px] text-[#de576f] mt-2">{error}</p>}
       </div>
