@@ -136,6 +136,51 @@ def test_sync_account_end_to_end_and_idempotent(db, monkeypatch):
     assert s.query(Fill).filter_by(exchange_account_id=acc.id).count() == 2
 
 
+# --- fill_ids tracking + PositionFill link tests ---
+
+def test_build_closed_positions_returns_fill_ids(db):
+    """build_closed_positions rows must include fill_ids with the round-trip's external_ids."""
+    _, _, acc = db
+    views = [
+        _view("o", "HYPE/USDC", "SELL", "SELL", "64.196", "1.57", "0.0302", "-0.0302", 1782750970000000000),
+        _view("c", "HYPE/USDC", "BUY",  "SELL", "64.178", "1.57", "0.0302", "-0.00197", 1782750984000000000),
+    ]
+    rows = risex_sync.build_closed_positions(acc, views)
+    assert len(rows) == 1
+    assert rows[0]["fill_ids"] == ["o", "c"]
+
+
+def test_sync_creates_and_idempotent_position_fill_links(db, monkeypatch):
+    """After sync_account, the closed Position has exactly 2 PositionFill links.
+    Re-running sync (idempotent) must leave the count at exactly 2 — no growth."""
+    from app.perps.models import PositionFill
+    s, _, acc = db
+    monkeypatch.setattr(risex_sync, "_client_for", lambda account: _FakeClient())
+
+    risex_sync.sync_account(s, acc)
+    closed = s.query(Position).filter_by(exchange_account_id=acc.id,
+                                         status=PositionStatus.CLOSED).one()
+    links = s.query(PositionFill).filter_by(position_id=closed.id).count()
+    assert links == 2, f"Expected 2 PositionFill links after first sync, got {links}"
+
+    # Re-sync: idempotency — link count must not grow
+    risex_sync.sync_account(s, acc)
+    closed2 = s.query(Position).filter_by(exchange_account_id=acc.id,
+                                          status=PositionStatus.CLOSED).one()
+    links2 = s.query(PositionFill).filter_by(position_id=closed2.id).count()
+    assert links2 == 2, f"After re-sync expected 2 PositionFill links, got {links2}"
+    total = (s.query(PositionFill)
+             .join(Position, PositionFill.position_id == Position.id)
+             .filter(Position.exchange_account_id == acc.id)
+             .count())
+    assert total == 2, f"Total PositionFill for account must be 2 after re-sync, got {total}"
+    # Raw table count (not JOIN-shielded) proves the pre-delete ran — orphan rows
+    # pointing at the wiped+recreated positions would be invisible to the JOIN above
+    # but would show here. The test DB holds only this account.
+    raw = s.query(PositionFill).count()
+    assert raw == 2, f"Raw PositionFill rows must be 2 after re-sync (no orphans), got {raw}"
+
+
 # --- venue_sync wiring tests ---
 
 from app.perps.services import venue_sync  # noqa: E402
