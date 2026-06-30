@@ -50,48 +50,46 @@ def _active_plan_card(db: Session, user_id: int, now: datetime):
     return None
 
 
-def build_cockpit(db: Session, account, client) -> dict:
+def _session_block(db: Session, user_id: int, account_id):
+    """(realized_today, trades_today, plan). Plan-card mode is workspace-level
+    (score_card perps, ignores account_id, as before). The no-card fallback
+    scopes to account_id when given (single-account) or all the user's perps
+    closed positions when None (aggregate)."""
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    card = _active_plan_card(db, user_id, now_naive)
+    if card is not None:
+        from app.workflow.services.scoring import score_card
+        score = score_card(db, user_id, card, workspace="perps")
+        plan = {
+            "date": card.date.isoformat(), "max_trades": card.max_trades,
+            "trades_count": score["trades_count"], "max_daily_loss": card.max_daily_loss,
+            "realized": score["realized"], "trades_over": score["flags"]["trades_over"],
+            "loss_breached": score["flags"]["loss_breached"],
+        }
+        return score["realized"], score["trades_count"], plan
+    midnight = _today_utc()
+    q = db.query(Position).filter(Position.status == PositionStatus.CLOSED,
+                                  Position.closed_at >= midnight)
+    if account_id is not None:
+        q = q.filter(Position.exchange_account_id == account_id)
+    else:
+        q = q.filter(Position.user_id == user_id)
+    realized = (q.with_entities(func.coalesce(func.sum(Position.realized_pnl), 0.0)).scalar()) or 0.0
+    trades = (q.with_entities(func.count(Position.id)).scalar()) or 0
+    return realized, trades, None
+
+
+def _account_live(db: Session, account, client) -> dict:
+    """Per-account LIVE parts only (no session/plan). Positions tagged with
+    venue / account_id / account_label. Equity-relative ratios are computed by
+    the composer (single uses this account's equity; aggregate uses the total)."""
     raw_positions = client.fetch_open_positions()
     symbols = [r["symbol"] for r in raw_positions]
     tickers = client.fetch_tickers(symbols) if symbols else {}
     wallet = client.fetch_wallet_balance()
 
-    # Plan-aware session boundary: when an active plan card exists, the account's
-    # realized_today / trades_today come from the card's session window — scored
-    # PERPS-ONLY: this is the perps cockpit, prop P&L must never bleed in (the
-    # combined cross-workspace confrontation lives on /plan). Without a card, fall
-    # back to the perps-only UTC-midnight aggregates.
-    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-    card = _active_plan_card(db, account.user_id, now_naive)
-    plan = None
-    if card is not None:
-        from app.workflow.services.scoring import score_card
-        score = score_card(db, account.user_id, card, workspace="perps")
-        realized_today = score["realized"]
-        trades_today = score["trades_count"]
-        plan = {
-            "date": card.date.isoformat(),
-            "max_trades": card.max_trades,
-            "trades_count": score["trades_count"],
-            "max_daily_loss": card.max_daily_loss,
-            "realized": score["realized"],
-            "trades_over": score["flags"]["trades_over"],
-            "loss_breached": score["flags"]["loss_breached"],
-        }
-    else:
-        midnight = _today_utc()
-        realized_today = (db.query(func.coalesce(func.sum(Position.realized_pnl), 0.0))
-                          .filter(Position.exchange_account_id == account.id,
-                                  Position.status == PositionStatus.CLOSED,
-                                  Position.closed_at >= midnight).scalar()) or 0.0
-        trades_today = (db.query(func.count(Position.id))
-                        .filter(Position.exchange_account_id == account.id,
-                                Position.status == PositionStatus.CLOSED,
-                                Position.closed_at >= midnight).scalar()) or 0
-
     positions = []
-    open_upnl = gross = net = 0.0
-    open_risk = 0.0
+    open_upnl = gross = net = open_risk = 0.0
     unstopped = 0
     for r in raw_positions:
         symbol = r["symbol"]
@@ -148,30 +146,40 @@ def build_cockpit(db: Session, account, client) -> dict:
         net += notional * sign
         positions.append({
             "symbol": symbol, "direction": direction, "qty": qty,
-            "avg_entry": entry, "mark": mark,
-            "upnl": upnl,
+            "avg_entry": entry, "mark": mark, "upnl": upnl,
             "upnl_pct": (upnl / (entry * qty) * 100) if entry * qty > _EPS else None,
             "notional": notional, "leverage": float(r.get("leverage") or 0.0) or None,
             "liq_price": liq,
             "liq_distance_pct": (abs(mark - liq) / mark * 100) if (liq and mark > _EPS) else None,
             "margin_mode": "isolated" if r.get("tradeMode") in (1, "1") else "cross",
-            "funding_rate": rate,
-            "next_funding_at": t.get("next_funding_time"),
-            # longs PAY positive rates: cost is negative for the holder
+            "funding_rate": rate, "next_funding_at": t.get("next_funding_time"),
             "projected_funding_24h": -rate * notional * 3 * sign,
             "accrued_funding": accrued,
             "stop_price": stop, "stop_source": stop_source,
             "live_r": live_r, "risk_usd": risk_usd,
+            # multi-account tagging
+            "venue": account.venue.value, "account_id": account.id,
+            "account_label": account.label,
         })
 
-    equity = wallet.get("equity") or 0.0
     return {
+        "equity": wallet.get("equity") or 0.0,
+        "balance": wallet.get("balance"), "available": wallet.get("available"),
+        "open_upnl": open_upnl, "gross_notional": gross, "net_notional": net,
+        "open_risk_usd": open_risk, "unstopped_count": unstopped,
+        "positions": positions,
+    }
+
+
+def _compose(account_id, equity, balance, available, open_upnl, gross, net,
+             open_risk, unstopped, realized_today, trades_today, plan, positions,
+             unavailable=None) -> dict:
+    out = {
         "asof": datetime.now(timezone.utc).isoformat(),
         "plan": plan,
         "account": {
-            "account_id": account.id,
-            "equity": equity, "balance": wallet.get("balance"),
-            "available": wallet.get("available"),
+            "account_id": account_id,
+            "equity": equity, "balance": balance, "available": available,
             "realized_today": realized_today, "trades_today": trades_today,
             "open_upnl": open_upnl, "session_pnl": realized_today + open_upnl,
             "gross_notional": gross, "net_notional": net,
@@ -182,3 +190,32 @@ def build_cockpit(db: Session, account, client) -> dict:
         },
         "positions": positions,
     }
+    if unavailable is not None:
+        out["unavailable"] = unavailable
+    return out
+
+
+def build_cockpit(db: Session, account, client) -> dict:
+    live = _account_live(db, account, client)
+    realized_today, trades_today, plan = _session_block(db, account.user_id, account.id)
+    return _compose(account.id, live["equity"], live["balance"], live["available"],
+                    live["open_upnl"], live["gross_notional"], live["net_notional"],
+                    live["open_risk_usd"], live["unstopped_count"],
+                    realized_today, trades_today, plan, live["positions"])
+
+
+def build_cockpit_aggregate(db: Session, user_id: int, live_results: list[dict],
+                            unavailable: list[str]) -> dict:
+    equity = sum(r["equity"] for r in live_results)
+    balance = sum((r["balance"] or 0.0) for r in live_results)
+    available = sum((r["available"] or 0.0) for r in live_results)
+    open_upnl = sum(r["open_upnl"] for r in live_results)
+    gross = sum(r["gross_notional"] for r in live_results)
+    net = sum(r["net_notional"] for r in live_results)
+    open_risk = sum(r["open_risk_usd"] for r in live_results)
+    unstopped = sum(r["unstopped_count"] for r in live_results)
+    positions = [p for r in live_results for p in r["positions"]]
+    realized_today, trades_today, plan = _session_block(db, user_id, None)
+    return _compose(None, equity, balance, available, open_upnl, gross, net,
+                    open_risk, unstopped, realized_today, trades_today, plan,
+                    positions, unavailable=unavailable)
