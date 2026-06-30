@@ -204,3 +204,70 @@ def test_detail_surfaces_tags_without_journal_row(setup):
     _as(a)
     body = c.get(f"/api/perps/positions/{bare_id}/detail").json()
     assert body["journal"]["tag_ids"] == [tag_id]
+
+
+# --- key-based /detail?key= endpoint tests ---
+
+def test_detail_by_key_resolves_position(setup):
+    """GET /positions/detail?key= returns the position for a valid position_key."""
+    a, b, pid, bare_id = setup
+    c = TestClient(app)
+    _as(a)
+    r = c.get("/api/perps/positions/detail?key=1:BTCUSDT:cpnl:oc")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["position"]["id"] == pid
+    assert body["position"]["symbol"] == "BTCUSDT"
+    assert body["journal"]["stop_price"] == 95.0
+
+
+def test_detail_by_key_id_churn_survival(setup):
+    """After a sync deletes and re-inserts a position (new numeric id), the
+    old numeric id returns 404 but the stable position_key still resolves."""
+    a, b, pid, bare_id = setup
+    # Simulate id churn: delete and recreate with same position_key
+    db = SessionLocal()
+    old_pos = db.query(Position).filter(Position.id == pid).first()
+    old_key = old_pos.position_key
+    db.execute(perps_position_tags.delete())
+    db.query(PositionFill).filter(PositionFill.position_id == pid).delete()
+    db.query(Position).filter(Position.id == pid).delete()
+    db.commit()
+    # Re-insert with a new (auto-assigned) id
+    new_pos = Position(
+        user_id=a.id, exchange_account_id=old_pos.exchange_account_id,
+        symbol="BTCUSDT", asset_class=AssetClass.PERP,
+        direction=Direction.LONG, status=PositionStatus.CLOSED,
+        opened_at=_dt("2026-01-01T09:00:00"), closed_at=_dt("2026-01-01T11:00:00"),
+        avg_entry=100.0, avg_exit=110.0, quantity=1.0, realized_pnl=10.0,
+        total_fees=0.0, total_funding=-0.5, duration_seconds=7200,
+        position_key=old_key, opened_at_source=OpenedAtSource.EXACT,
+    )
+    db.add(new_pos); db.commit(); db.refresh(new_pos)
+    new_id = new_pos.id
+    db.close()
+
+    c = TestClient(app)
+    _as(a)
+    # Old numeric id is gone -> 404
+    assert c.get(f"/api/perps/positions/{pid}/detail").status_code == 404
+    # Stable key still resolves with the new id
+    r = c.get(f"/api/perps/positions/detail?key={old_key}")
+    assert r.status_code == 200
+    assert r.json()["position"]["id"] == new_id
+
+
+def test_detail_by_key_unknown_key_404(setup):
+    """An unknown position_key returns 404."""
+    a, b, pid, bare_id = setup
+    c = TestClient(app)
+    _as(a)
+    assert c.get("/api/perps/positions/detail?key=no:such:key").status_code == 404
+
+
+def test_detail_by_key_user_scoping(setup):
+    """User b cannot access user a's position by key."""
+    a, b, pid, bare_id = setup
+    c = TestClient(app)
+    _as(b)
+    assert c.get("/api/perps/positions/detail?key=1:BTCUSDT:cpnl:oc").status_code == 404

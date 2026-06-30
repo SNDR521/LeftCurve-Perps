@@ -5,6 +5,7 @@ import { Plus, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-rea
 import { fetchPerpsPositions, fetchPerpsAccounts, fetchPerpsJournalBulk } from '../lib/api'
 import { useAccount } from '../components/Layout'
 import PerpsFillModal from '../components/PerpsFillModal'
+import { encodePositionKey } from '../lib/positionKey'
 
 const PER_PAGE = 50
 const fmt = (n, d = 2) => (n == null ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: d }))
@@ -168,7 +169,7 @@ export default function PerpsPositions() {
               const pnl = p.status === 'CLOSED' ? (p.realized_pnl ?? 0) : 0
               const rowClass = p.status === 'OPEN' ? '' : pnl > 0 ? 'row-win' : pnl < 0 ? 'row-loss' : ''
               return (
-                <tr key={p.id} className={rowClass} onClick={() => navigate(`/trades/${p.id}`)}>
+                <tr key={p.id} className={rowClass} onClick={() => navigate(`/trades/${encodePositionKey(p.position_key || String(p.id))}`)}>
                   <td data-label="Date / Time">
                     <span className="text-[12px] font-mono text-[#8d91a6]">
                       {new Date(p.opened_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}

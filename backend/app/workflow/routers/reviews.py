@@ -90,6 +90,7 @@ def _period_trades(db: Session, user_id: int, start_dt: datetime,
         j = jmap.get(p.position_key) if p.position_key else None
         result.append({
             "id": p.id,
+            "position_key": p.position_key,
             "symbol": (p.symbol or "").upper(),
             "pnl": p.realized_pnl or 0.0,
             "r": p.r_multiple,

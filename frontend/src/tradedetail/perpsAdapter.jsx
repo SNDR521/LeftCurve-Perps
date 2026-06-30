@@ -3,6 +3,7 @@ import {
   fetchPerpsPositionDetail, fetchPerpsChartData,
   savePerpsJournal, uploadPerpsScreenshot,
 } from '../lib/api'
+import { decodePositionKey } from '../lib/positionKey'
 import { fmtDur } from './bits'
 import { parseUtcSeconds } from './chartMath'
 import PerpsTagEditor from './PerpsTagEditor'
@@ -53,10 +54,10 @@ export const perpsAdapter = {
   backTo: '/trades',
   backLabel: 'Trade Log',
 
-  useDetail(id) {
+  useDetail(encodedKey) {
     return useQuery({
-      queryKey: ['perps-detail', id],
-      queryFn: () => fetchPerpsPositionDetail(id),
+      queryKey: ['perps-detail', encodedKey],
+      queryFn: () => fetchPerpsPositionDetail(decodePositionKey(encodedKey)),
       select: normalize,
     })
   },
@@ -71,8 +72,8 @@ export const perpsAdapter = {
 
   deleteTrade: null,
 
-  invalidate(queryClient, id) {
-    queryClient.invalidateQueries(['perps-detail', id])
+  invalidate(queryClient, encodedKey) {
+    queryClient.invalidateQueries(['perps-detail', encodedKey])
     queryClient.invalidateQueries(['perps-positions'])
   },
 

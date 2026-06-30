@@ -57,14 +57,8 @@ def relink(user: User = Depends(get_current_user), db: Session = Depends(get_db)
     return out
 
 
-@router.get("/{position_id}/detail")
-def position_detail(position_id: int, user: User = Depends(get_current_user),
-                    db: Session = Depends(get_db)):
-    """Everything the trade-detail page needs in one call."""
-    pos = db.query(Position).filter(Position.id == position_id,
-                                    Position.user_id == user.id).first()
-    if pos is None:
-        raise HTTPException(status_code=404, detail="Not found")
+def _build_detail(db: Session, user: User, pos: Position) -> dict:
+    """Build the full detail payload for an already-resolved Position row."""
     journal = None
     if pos.position_key:
         journal = db.query(PerpsJournal).filter(
@@ -92,6 +86,34 @@ def position_detail(position_id: int, user: User = Depends(get_current_user),
                   for f in fills],
         "risk": compute_risk(pos, journal),
     }
+
+
+@router.get("/detail")
+def position_detail_by_key(key: str, user: User = Depends(get_current_user),
+                            db: Session = Depends(get_db)):
+    """Stable key-based trade-detail lookup.
+
+    Survives the id churn that occurs when sync rebuilds positions with
+    delete-then-reinsert: position_key is stable across reinserts, numeric
+    Position.id is not.
+    """
+    pos = db.query(Position).filter(Position.position_key == key,
+                                    Position.user_id == user.id).first()
+    if pos is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _build_detail(db, user, pos)
+
+
+@router.get("/{position_id}/detail")
+def position_detail(position_id: int, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """Everything the trade-detail page needs in one call (id-based, kept for
+    backward compatibility — prefer the key-based /detail endpoint)."""
+    pos = db.query(Position).filter(Position.id == position_id,
+                                    Position.user_id == user.id).first()
+    if pos is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _build_detail(db, user, pos)
 
 
 @router.get("/{position_id}", response_model=PositionOut)

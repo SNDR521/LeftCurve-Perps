@@ -84,6 +84,14 @@ class RiseXClient:
                                      "start_time": start_ns, "end_time": end_ns},
                                     items_key="trades")
 
+    def iter_transfers(self, start_ns: int, end_ns: int) -> Iterator[dict]:
+        """Deposits/withdrawals from /v1/account/transfer-history (envelope items).
+        Public; account currently may have none."""
+        yield from self._iter_pages("/v1/account/transfer-history",
+                                    {"account": self.address,
+                                     "start_time": start_ns, "end_time": end_ns},
+                                    items_key="items")
+
     # --- markets (id -> name) ---
     def fetch_markets(self) -> dict[int, str]:
         """market_id (int) -> display name. The unwrapped /v1/markets payload is
