@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-  fetchPerpsPositionDetail, fetchPerpsChartData,
+  fetchPerpsPositionDetail, fetchPerpsPositionDetailById, fetchPerpsChartData,
   savePerpsJournal, uploadPerpsScreenshot,
 } from '../lib/api'
 import { decodePositionKey } from '../lib/positionKey'
@@ -55,9 +55,14 @@ export const perpsAdapter = {
   backLabel: 'Trade Log',
 
   useDetail(encodedKey) {
+    const decoded = decodePositionKey(encodedKey)
+    // A position_key always contains ':' ({account}:{symbol}:…); a bare numeric id
+    // (the fallback when a row has no key) does not — route it to the id-based
+    // detail endpoint, which is still served, so keyless positions still resolve.
+    const byKey = decoded.includes(':')
     return useQuery({
       queryKey: ['perps-detail', encodedKey],
-      queryFn: () => fetchPerpsPositionDetail(decodePositionKey(encodedKey)),
+      queryFn: () => (byKey ? fetchPerpsPositionDetail(decoded) : fetchPerpsPositionDetailById(decoded)),
       select: normalize,
     })
   },
