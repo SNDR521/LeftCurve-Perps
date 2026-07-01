@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import pytest
 from app.database import init_db, SessionLocal
 from app.core.models import User
-from app.perps.models import Position, Direction, PositionStatus, AssetClass, PerpsJournal, OpenedAtSource
+from app.perps.models import Position, Direction, PositionStatus, AssetClass, PerpsJournal, OpenedAtSource, BalanceSnapshot
 import app.perps.services.analytics as pa
 
 def _pos(uid, aid, **kw):
@@ -19,6 +19,7 @@ def _pos(uid, aid, **kw):
 def seeded():
     init_db()
     db = SessionLocal()
+    db.query(BalanceSnapshot).delete()
     db.query(PerpsJournal).delete(); db.query(Position).delete(); db.query(User).delete(); db.commit()
     u = User(email="p@x.com", password_hash="x"); db.add(u); db.commit(); db.refresh(u)
     db.add(_pos(u.id, 1, realized_pnl=10, r_multiple=2.0, closed_at=datetime(2024,1,1,10,tzinfo=timezone.utc)))
@@ -41,6 +42,76 @@ def test_overview(seeded):
     assert ov.max_consecutive_wins == 2 and ov.max_consecutive_losses == 1
     assert ov.best_trade == pytest.approx(20) and ov.worst_trade == pytest.approx(-5)
     db.close()
+
+def test_overview_avg_risk_amount(seeded):
+    # avg_risk_amount is the dollar risk per trade, recovered as realized/r_multiple:
+    # pos1 10/2=5, pos2 20/4=5 → mean 5.0; the r_multiple=None loser is excluded.
+    db = SessionLocal()
+    ov = pa.compute_overview(db, user_id=seeded)
+    assert ov.avg_risk_amount == pytest.approx(5.0)
+    db.close()
+
+
+def test_overview_exclude_breakeven(seeded):
+    # A tiny +$2 winner is a breakeven scratch; with exclude_breakeven it drops
+    # out of every trade-derived metric. The default $5 threshold also drops the
+    # seeded -$5 loser, which sits exactly on the line (the filter is strict >).
+    db = SessionLocal()
+    u = db.query(User).filter(User.email == "p@x.com").one()
+    db.add(_pos(u.id, 1, realized_pnl=2.0,
+                closed_at=datetime(2024, 1, 4, 10, tzinfo=timezone.utc)))
+    db.commit()
+
+    assert pa.compute_overview(db, user_id=seeded).total_trades == 4
+    filtered = pa.compute_overview(db, {"exclude_breakeven": True}, seeded)
+    assert filtered.total_trades == 2            # +$10 and +$20 clear the $5 band
+    assert filtered.total_pnl == pytest.approx(30)
+
+    daily = pa.compute_daily_pnl(db, {"exclude_breakeven": True}, seeded)
+    assert "2024-01-04" not in [r.date for r in daily]
+
+    # A custom $15 threshold scratches everything but the +$20 winner.
+    wide = pa.compute_overview(db, {"exclude_breakeven": True, "breakeven_threshold": 15}, seeded)
+    assert wide.total_trades == 1
+    db.close()
+
+
+def test_overview_period_start_balance(seeded):
+    # period_start_balance = latest SNAPSHOT at-or-before the period start,
+    # falling back to the earliest snapshot when the period predates funding.
+    db = SessionLocal()
+    u = db.query(User).filter(User.email == "p@x.com").one()
+    for day, bal in ((1, 1000.0), (2, 1100.0), (3, 1050.0)):
+        db.add(BalanceSnapshot(user_id=u.id, exchange_account_id=1,
+                               ts=datetime(2024, 1, day, tzinfo=timezone.utc),
+                               balance=bal, kind="SNAPSHOT"))
+    db.commit()
+
+    # No from_date → earliest snapshot (starting capital).
+    assert pa.compute_overview(db, user_id=seeded).period_start_balance == pytest.approx(1000.0)
+    # Period starting 2024-01-02 (still has trades) → that day's snapshot.
+    assert pa.compute_overview(db, {"from_date": "2024-01-02"}, seeded).period_start_balance == pytest.approx(1100.0)
+    # Helper directly: a period starting after the last snapshot pins to the most
+    # recent balance (compute_overview short-circuits when the period has no trades).
+    assert pa._period_start_balance(db, seeded, {"from_date": "2024-06-01"}) == pytest.approx(1050.0)
+    assert pa._period_start_balance(db, seeded, None) == pytest.approx(1000.0)
+    db.close()
+
+
+def test_period_start_balance_sums_accounts(seeded):
+    # With no account filter, balances sum across accounts (aggregate cockpit view).
+    db = SessionLocal()
+    u = db.query(User).filter(User.email == "p@x.com").one()
+    db.add(BalanceSnapshot(user_id=u.id, exchange_account_id=1,
+                           ts=datetime(2024, 1, 1, tzinfo=timezone.utc), balance=1000.0, kind="SNAPSHOT"))
+    db.add(BalanceSnapshot(user_id=u.id, exchange_account_id=2,
+                           ts=datetime(2024, 1, 1, tzinfo=timezone.utc), balance=500.0, kind="SNAPSHOT"))
+    db.commit()
+    assert pa.compute_overview(db, user_id=seeded).period_start_balance == pytest.approx(1500.0)
+    # Scoped to account 1 only.
+    assert pa.compute_overview(db, {"account_id": 1}, seeded).period_start_balance == pytest.approx(1000.0)
+    db.close()
+
 
 def test_overview_empty():
     init_db()

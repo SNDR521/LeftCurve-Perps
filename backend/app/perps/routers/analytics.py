@@ -11,27 +11,36 @@ from app.perps.services import cross_analysis as cross_svc
 router = APIRouter(prefix="/analytics", tags=["perps-analytics"])
 
 
-def _filters(account_id, symbol, from_date, to_date):
+def _filters(account_id, symbol, from_date, to_date,
+             exclude_breakeven=False, breakeven_threshold=None):
     f = {}
     if account_id is not None: f["account_id"] = account_id
     if symbol: f["symbol"] = symbol
     if from_date: f["from_date"] = from_date
     if to_date: f["to_date"] = to_date
+    if exclude_breakeven:
+        f["exclude_breakeven"] = True
+        if breakeven_threshold is not None:
+            f["breakeven_threshold"] = breakeven_threshold
     return f
 
 
 @router.get("/overview")
 def overview(user: User = Depends(get_current_user), db: Session = Depends(get_db),
              account_id: int | None = None, symbol: str | None = None,
-             from_date: str | None = None, to_date: str | None = None):
-    return svc.compute_overview(db, _filters(account_id, symbol, from_date, to_date), user.id)
+             from_date: str | None = None, to_date: str | None = None,
+             exclude_breakeven: bool = False, breakeven_threshold: float | None = None):
+    return svc.compute_overview(db, _filters(account_id, symbol, from_date, to_date,
+                                             exclude_breakeven, breakeven_threshold), user.id)
 
 
 @router.get("/daily-pnl")
 def daily_pnl(user: User = Depends(get_current_user), db: Session = Depends(get_db),
               account_id: int | None = None, symbol: str | None = None,
-              from_date: str | None = None, to_date: str | None = None):
-    return svc.compute_daily_pnl(db, _filters(account_id, symbol, from_date, to_date), user.id)
+              from_date: str | None = None, to_date: str | None = None,
+              exclude_breakeven: bool = False, breakeven_threshold: float | None = None):
+    return svc.compute_daily_pnl(db, _filters(account_id, symbol, from_date, to_date,
+                                              exclude_breakeven, breakeven_threshold), user.id)
 
 
 @router.get("/heatmap")
@@ -102,8 +111,9 @@ def insights(user: User = Depends(get_current_user), db: Session = Depends(get_d
 @router.get("/by-{group_by}")
 def by_group(group_by: str, user: User = Depends(get_current_user), db: Session = Depends(get_db),
              account_id: int | None = None, symbol: str | None = None,
-             from_date: str | None = None, to_date: str | None = None):
-    f = _filters(account_id, symbol, from_date, to_date)
+             from_date: str | None = None, to_date: str | None = None,
+             exclude_breakeven: bool = False, breakeven_threshold: float | None = None):
+    f = _filters(account_id, symbol, from_date, to_date, exclude_breakeven, breakeven_threshold)
     if group_by == "session": return svc.compute_by_session(db, f, user.id)
     if group_by == "holdtime": return svc.compute_by_holdtime(db, f, user.id)
     return svc.compute_performance_by_group(db, group_by, f, user.id)

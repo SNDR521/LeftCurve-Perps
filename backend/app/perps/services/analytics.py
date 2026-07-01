@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.perps.models import Position, PositionStatus, PerpsJournal, OpenedAtSource
+from app.perps.models import Position, PositionStatus, PerpsJournal, OpenedAtSource, BalanceSnapshot
 from app.perps.services.risk import compute_risk
 from app.core.schemas import OverviewMetrics, DailyPnl
 
@@ -40,7 +40,46 @@ def _closed_positions(db: Session, user_id: int, filters: dict | None, exact_onl
             q = q.filter(Position.closed_at >= _as_dt(filters["from_date"]))
         if filters.get("to_date"):
             q = q.filter(Position.closed_at <= _as_dt(filters["to_date"], end_of_day=True))
-    return q.order_by(Position.closed_at.asc(), Position.id.asc()).all()
+    rows = q.order_by(Position.closed_at.asc(), Position.id.asc()).all()
+    if filters and filters.get("exclude_breakeven"):
+        threshold = filters.get("breakeven_threshold", 5.0)
+        rows = [p for p in rows if abs(p.realized_pnl or 0) > threshold]
+    return rows
+
+
+def _period_start_balance(db: Session, user_id: int, filters: dict | None) -> float | None:
+    """The wallet balance the selected period opened at — the denominator for the
+    Percentage P&L view. Balance (not equity: no floating P&L) as of the period
+    start, per account, summed across accounts when none is selected. Falls back
+    to the earliest snapshot when the period predates the account's first
+    balance record. None when no balance history exists (venue without it)."""
+    filters = filters or {}
+    from_date = _as_dt(filters["from_date"]) if filters.get("from_date") else None
+    account_id = filters.get("account_id")
+
+    def _base():
+        return db.query(BalanceSnapshot).filter(
+            BalanceSnapshot.user_id == user_id, BalanceSnapshot.kind == "SNAPSHOT")
+
+    if account_id is not None:
+        account_ids = [int(account_id)]
+    else:
+        account_ids = [a for (a,) in _base().with_entities(
+            BalanceSnapshot.exchange_account_id).distinct().all()]
+
+    total, found = 0.0, False
+    for aid in account_ids:
+        q = _base().filter(BalanceSnapshot.exchange_account_id == aid)
+        row = None
+        if from_date is not None:
+            row = q.filter(BalanceSnapshot.ts <= from_date).order_by(
+                BalanceSnapshot.ts.desc()).first()
+        if row is None:
+            row = q.order_by(BalanceSnapshot.ts.asc()).first()
+        if row is not None:
+            total += row.balance
+            found = True
+    return total if found else None
 
 
 def _day(p: Position) -> str:
@@ -75,6 +114,13 @@ def compute_overview(db: Session, filters: dict = None, user_id: int = None) -> 
 
     r_vals = [p.r_multiple for p in positions if p.r_multiple is not None]
     avg_r = sum(r_vals) / len(r_vals) if r_vals else None
+    # Dollar risk per trade, recovered as realized/r_multiple (r_multiple was
+    # defined as realized/risk at build time) — the denominator the dashboard's
+    # R-Multiple view divides by. Scratch trades (r_multiple 0/None) carry no
+    # measurable risk and are left out of the average.
+    risk_amts = [(p.realized_pnl or 0) / p.r_multiple
+                 for p in positions if p.r_multiple]
+    avg_risk = sum(risk_amts) / len(risk_amts) if risk_amts else None
     durations = [p.duration_seconds for p in positions if p.duration_seconds]
     avg_dur = sum(durations) / len(durations) if durations else None
 
@@ -106,7 +152,8 @@ def compute_overview(db: Session, filters: dict = None, user_id: int = None) -> 
         profit_factor=round(total_wins / total_losses, 2) if total_losses > 0 else 0.0,
         expectancy=sum(pnls) / len(positions),
         avg_r_multiple=avg_r,
-        avg_risk_amount=None,
+        avg_risk_amount=avg_risk,
+        period_start_balance=_period_start_balance(db, user_id, filters),
         max_drawdown=max_dd,
         max_consecutive_wins=max_w,
         max_consecutive_losses=max_l,

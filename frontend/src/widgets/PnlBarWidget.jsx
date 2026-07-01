@@ -21,9 +21,14 @@ export default function PnlBarWidget({ groupBy = 'symbol' }) {
   const transformed = useMemo(() => {
     if (!data) return null
     if (view === 'Dollars') return data
+    // Guard the denominator: a perps account with no balance history (Percentage)
+    // or no journaled risk (R-Multiple) has no basis to convert against — render
+    // no data rather than Infinity/NaN bars.
+    const denom = view === 'Percentage' ? BALANCE : oneR
+    if (!denom) return []
     return data.map(d => ({
       ...d,
-      total_pnl: view === 'Percentage' ? (d.total_pnl / BALANCE) * 100 : d.total_pnl / oneR,
+      total_pnl: view === 'Percentage' ? (d.total_pnl / denom) * 100 : d.total_pnl / denom,
     }))
   }, [data, view, BALANCE, oneR])
 

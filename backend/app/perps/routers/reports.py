@@ -13,12 +13,17 @@ router = APIRouter(prefix="/reports", tags=["perps-reports"])
 @router.get("/drawdown")
 def drawdown(user: User = Depends(get_current_user), db: Session = Depends(get_db),
              account_id: int | None = None, symbol: str | None = None,
-             from_date: str | None = None, to_date: str | None = None):
+             from_date: str | None = None, to_date: str | None = None,
+             exclude_breakeven: bool = False, breakeven_threshold: float | None = None):
     f = {}
     if account_id is not None: f["account_id"] = account_id
     if symbol: f["symbol"] = symbol
     if from_date: f["from_date"] = from_date
     if to_date: f["to_date"] = to_date
+    if exclude_breakeven:
+        f["exclude_breakeven"] = True
+        if breakeven_threshold is not None:
+            f["breakeven_threshold"] = breakeven_threshold
     daily = svc.compute_daily_pnl(db, f, user.id)
     peak = 0.0; out = []
     for d in daily:

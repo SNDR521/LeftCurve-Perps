@@ -17,6 +17,7 @@ class OverviewMetrics(BaseModel):
     expectancy: float = 0.0
     avg_r_multiple: Optional[float] = None
     avg_risk_amount: Optional[float] = None
+    period_start_balance: Optional[float] = None
     max_drawdown: float = 0.0
     max_consecutive_wins: int = 0
     max_consecutive_losses: int = 0
