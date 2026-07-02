@@ -543,3 +543,21 @@ def test_cockpit_position_market_id_none_without_marketid(db):
     s, u, acc = db
     out = build_cockpit(s, acc, FakeCockpitClient())
     assert out["positions"][0]["market_id"] is None
+
+
+# --- Task 4: cockpit position rows carry can_close ----
+
+def test_cockpit_position_can_close_for_bybit_with_creds(db):
+    s, u, acc = db
+    acc.encrypted_credentials = b"blob"
+    s.commit()
+    out = build_cockpit(s, acc, FakeCockpitClient())
+    assert out["positions"][0]["can_close"] is True
+
+
+def test_cockpit_position_can_close_false_without_creds(db):
+    s, u, acc = db
+    acc.encrypted_credentials = None
+    s.commit()
+    out = build_cockpit(s, acc, FakeCockpitClient())
+    assert out["positions"][0]["can_close"] is False

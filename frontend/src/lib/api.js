@@ -135,6 +135,9 @@ export function fetchPerpsAccounts() { return perpsRequest('/accounts') }
 export function createPerpsAccount(data) { return perpsRequest('/accounts', { method: 'POST', body: JSON.stringify(data) }) }
 export function deletePerpsAccount(id) { return perpsRequest(`/accounts/${id}`, { method: 'DELETE' }) }
 export function syncPerpsAccount(id) { return perpsRequest(`/accounts/${id}/sync`, { method: 'POST' }) }
+export function closePerpsPosition(body) {
+  return perpsRequest('/positions/close', { method: 'POST', body: JSON.stringify(body) })
+}
 
 export function fetchPerpsPositions(params = {}) {
   const qs = new URLSearchParams(params).toString()

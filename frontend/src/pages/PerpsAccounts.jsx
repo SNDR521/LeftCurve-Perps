@@ -147,7 +147,7 @@ export default function PerpsAccounts() {
                   onClick={() => create.mutate()}>Add account</button>
         </div>
         {venue === 'BYBIT' && (
-          <p className="text-[11px] text-[#4e5166] mt-2">Use a read-only API key (no trade/withdraw permissions).</p>
+          <p className="text-[11px] text-[#4e5166] mt-2">A read-only key is fine for journaling. Closing positions from the cockpit needs a key with trade permission — never grant withdrawal.</p>
         )}
         {venue === 'HYPERLIQUID' && (
           <p className="text-[11px] text-[#4e5166] mt-2">Read-only: paste your Hyperliquid wallet address (no keys needed).</p>

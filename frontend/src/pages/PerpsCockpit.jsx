@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchPerpsCockpit, savePerpsJournal } from '../lib/api'
 import { useAccount } from '../components/Layout'
+import CloseControl from '../components/CloseControl'
 
 // Real-time mark prices straight from Bybit's public ticker stream — pushed
 // ~100ms, no backend involved. The 5s REST poll stays the source of truth for
@@ -329,7 +330,7 @@ function StopCell({ accountId, symbol, stopPrice, stopSource }) {
 
 const VENUE_LABEL = { BYBIT: 'Bybit', HYPERLIQUID: 'Hyperliquid', RISEX: 'RiseX' }
 
-const COLUMNS = ['Symbol', 'Side', 'Size', 'Entry', 'Mark', 'uPnL', 'R', 'Lev', 'Liq', 'Funding', 'Proj/24h', 'Accrued', 'Stop']
+const COLUMNS = ['Symbol', 'Side', 'Size', 'Entry', 'Mark', 'uPnL', 'R', 'Lev', 'Liq', 'Funding', 'Proj/24h', 'Accrued', 'Stop', 'Close']
 
 export default function PerpsCockpit() {
   const { perpsAccountId } = useAccount()
@@ -368,7 +369,7 @@ export default function PerpsCockpit() {
     <div>
       <h1 className="text-[22px] font-semibold text-white">Cockpit</h1>
       <p className="text-[13px] text-[#4e5166] mt-0.5">
-        read-only — {connected ? 'marks stream live' : 'live'} · positions refresh every 5s
+        {connected ? 'marks stream live' : 'live'} · positions refresh every 5s
       </p>
     </div>
   )
@@ -567,6 +568,11 @@ export default function PerpsCockpit() {
                     </td>
                     <td data-label="Stop" style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <StopCell accountId={p.account_id} symbol={p.symbol} stopPrice={p.stop_price} stopSource={p.stop_source} />
+                    </td>
+                    <td data-label="Close" style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      {p.can_close
+                        ? <CloseControl accountId={p.account_id} symbol={p.symbol} qty={p.qty} />
+                        : <span className="text-[11px] text-[#4e5166]">—</span>}
                     </td>
                   </tr>
                 )

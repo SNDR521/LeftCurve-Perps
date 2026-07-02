@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import time
 from typing import Iterator, Optional
@@ -25,7 +26,9 @@ EMPTY_PAGE_LIMIT = 3  # consecutive empty pages before we treat the window as ex
 
 
 class BybitError(Exception):
-    pass
+    def __init__(self, message: str, ret_code: int | None = None):
+        super().__init__(message)
+        self.ret_code = ret_code
 
 
 def _query_string(params: dict) -> str:
@@ -182,3 +185,52 @@ class BybitClient:
             if not cursor:
                 break
         return rows
+
+    # --- trading (cockpit close) --------------------------------------------
+    def _signed_post(self, path: str, params: dict) -> dict:
+        """V5 signed POST. The signature covers the RAW JSON body, so the exact
+        string signed is the exact string sent. Single attempt — an order POST
+        must never blind-retry (a 429'd close is just clicked again)."""
+        body = json.dumps(params, separators=(",", ":"))
+        ts = str(int(time.time() * 1000))
+        sig = _sign(self.api_secret, ts, self.api_key, RECV_WINDOW, body)
+        headers = {
+            "X-BAPI-API-KEY": self.api_key,
+            "X-BAPI-TIMESTAMP": ts,
+            "X-BAPI-RECV-WINDOW": RECV_WINDOW,
+            "X-BAPI-SIGN": sig,
+            "Content-Type": "application/json",
+        }
+        resp = self._client.post(f"{self.base_url}{path}", headers=headers, content=body)
+        resp.raise_for_status()
+        data = resp.json()
+        code = data.get("retCode")
+        if code != 0:
+            raise BybitError(f"{path} retCode={code} {data.get('retMsg')}", ret_code=code)
+        return data
+
+    def close_position(self, symbol: str, qty: str, close_side: str) -> dict:
+        """Reduce-only market order closing (part of) a position.
+        close_side is the ORDER side: 'Sell' closes a LONG, 'Buy' a SHORT.
+        positionIdx 0 = one-way mode; hedge-mode accounts get Bybit's own
+        rejection, surfaced upstream as venue_rejected."""
+        data = self._signed_post("/v5/order/create", {
+            "category": "linear", "symbol": symbol, "side": close_side,
+            "orderType": "Market", "qty": qty, "reduceOnly": True,
+            "positionIdx": 0,
+        })
+        return {"order_id": ((data.get("result") or {}).get("orderId")) or ""}
+
+    def fetch_lot_rules(self, symbol: str) -> dict:
+        """qtyStep/minOrderQty from instruments-info (public endpoint; the
+        signed GET's retry/backoff is reused, auth headers are ignored).
+        Raises when the instrument is unknown — a close must never proceed
+        on guessed rounding rules."""
+        data = self._signed_get("/v5/market/instruments-info",
+                                {"category": "linear", "symbol": symbol})
+        rows = (data.get("result") or {}).get("list") or []
+        f = (rows[0].get("lotSizeFilter") or {}) if rows else {}
+        step, minq = f.get("qtyStep"), f.get("minOrderQty")
+        if not step or minq in (None, ""):
+            raise BybitError(f"no lot rules for {symbol}")
+        return {"qty_step": step, "min_qty": minq}

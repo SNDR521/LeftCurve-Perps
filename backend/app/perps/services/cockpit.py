@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.perps.models import Fill, PerpsJournal, Position, PositionStatus
+from app.perps.services import venue_trade
 
 _EPS = 1e-12
 
@@ -88,6 +89,8 @@ def _account_live(db: Session, account, client) -> dict:
     tickers = client.fetch_tickers(symbols) if symbols else {}
     wallet = client.fetch_wallet_balance()
 
+    acct_can_close = venue_trade.can_close(account)
+
     positions = []
     open_upnl = gross = net = open_risk = 0.0
     unstopped = 0
@@ -162,6 +165,7 @@ def _account_live(db: Session, account, client) -> dict:
             "account_label": account.label,
             # RiseX orderbook-WS subscription key (None for Bybit/HL)
             "market_id": r.get("marketId"),
+            "can_close": acct_can_close,
         })
 
     return {

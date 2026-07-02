@@ -13,6 +13,7 @@ from app.perps.routers import (
     positions as perps_positions, analytics as perps_analytics,
     reports as perps_reports, journal as perps_journal,
     chart_data as perps_chart_data, cockpit as perps_cockpit,
+    trade as perps_trade,
 )
 from app.workflow.routers import (
     plan_cards as workflow_plan_cards, playbooks as workflow_playbooks,
@@ -37,7 +38,8 @@ app.include_router(market_router, prefix="/api")
 
 PERPS = "/api/perps"
 for r in (perps_accounts, perps_fills, perps_positions, perps_analytics,
-          perps_reports, perps_journal, perps_chart_data, perps_cockpit):
+          perps_reports, perps_journal, perps_chart_data, perps_cockpit,
+          perps_trade):
     app.include_router(r.router, prefix=PERPS)
 
 WORKFLOW = "/api/workflow"

@@ -1,4 +1,5 @@
 import hmac, hashlib
+import pytest
 from app.perps.connectors.bybit import BybitClient, _query_string, _sign
 
 
@@ -232,3 +233,83 @@ def test_iter_transaction_log_no_type_filter(monkeypatch):
 
     rows = list(c.iter_transaction_log(0, 1000))
     assert rows == [{"id": "tx1", "cashBalance": "1000"}]
+
+
+# --- trading methods (Phase 1 cockpit close) --------------------------------
+import json
+
+from app.perps.connectors.bybit import BybitClient, BybitError
+
+
+class _CapturePost:
+    """Fake httpx client capturing the POST and returning a canned Bybit body."""
+    def __init__(self, payload):
+        self.payload = payload
+        self.captured = None
+
+    def post(self, url, headers=None, content=None):
+        self.captured = {"url": url, "headers": headers, "content": content}
+        class _R:
+            status_code = 200
+            def raise_for_status(self):
+                pass
+            def json(_self):
+                return self.payload
+        return _R()
+
+    def get(self, url, headers=None):
+        raise AssertionError("close must not GET")
+
+
+def test_close_position_signs_body_and_is_reduce_only():
+    ok = {"retCode": 0, "retMsg": "OK", "result": {"orderId": "abc-123"}}
+    c = BybitClient("key", "secret")
+    fake = _CapturePost(ok)
+    c._client = fake
+
+    out = c.close_position("BTCUSDT", "0.5", "Sell")
+    assert out == {"order_id": "abc-123"}
+
+    body = json.loads(fake.captured["content"])
+    assert body["category"] == "linear" and body["symbol"] == "BTCUSDT"
+    assert body["side"] == "Sell" and body["orderType"] == "Market"
+    assert body["qty"] == "0.5" and body["reduceOnly"] is True
+    assert body["positionIdx"] == 0
+    # signature is HMAC-SHA256 over ts + key + recv_window + raw body
+    h = fake.captured["headers"]
+    expected = hmac.new(b"secret",
+                        f"{h['X-BAPI-TIMESTAMP']}key{h['X-BAPI-RECV-WINDOW']}{fake.captured['content']}".encode(),
+                        hashlib.sha256).hexdigest()
+    assert h["X-BAPI-SIGN"] == expected
+    assert h["Content-Type"] == "application/json"
+    assert fake.captured["url"].endswith("/v5/order/create")
+
+
+def test_close_position_nonzero_retcode_raises_with_ret_code():
+    c = BybitClient("key", "secret")
+    c._client = _CapturePost({"retCode": 10005, "retMsg": "Permission denied"})
+    try:
+        c.close_position("BTCUSDT", "0.5", "Buy")
+        assert False, "should raise"
+    except BybitError as e:
+        assert e.ret_code == 10005
+        assert "Permission denied" in str(e)
+
+
+def test_fetch_lot_rules(monkeypatch):
+    c = BybitClient("key", "secret")
+    def fake_get(path, params):
+        assert path == "/v5/market/instruments-info"
+        assert params == {"category": "linear", "symbol": "BTCUSDT"}
+        return {"retCode": 0, "result": {"list": [
+            {"symbol": "BTCUSDT", "lotSizeFilter": {"qtyStep": "0.001", "minOrderQty": "0.001"}}]}}
+    monkeypatch.setattr(c, "_signed_get", fake_get)
+    assert c.fetch_lot_rules("BTCUSDT") == {"qty_step": "0.001", "min_qty": "0.001"}
+
+
+def test_fetch_lot_rules_unknown_symbol_raises(monkeypatch):
+    c = BybitClient("key", "secret")
+    monkeypatch.setattr(c, "_signed_get",
+                        lambda path, params: {"retCode": 0, "result": {"list": []}})
+    with pytest.raises(BybitError):
+        c.fetch_lot_rules("NOPEUSDT")
