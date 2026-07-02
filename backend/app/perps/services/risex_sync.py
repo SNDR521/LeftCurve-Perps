@@ -316,6 +316,11 @@ def sync_account(db: Session, account: ExchangeAccount) -> dict:
                     db.add(PositionFill(position_id=pos.id, fill_id=fid))
         db.commit()
 
+        # fetch_markets() (step 0) primed the portfolio memo before the fill
+        # backfill above, which can take minutes on a first sync — drop it so the
+        # open-positions snapshot and balance anchor below see a fresh portfolio.
+        client.invalidate_portfolio()
+
         # --- 3. Open positions: full snapshot replace ---
         db.query(Position).filter(
             Position.exchange_account_id == account.id,

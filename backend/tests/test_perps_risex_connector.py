@@ -40,8 +40,9 @@ def test_fetch_open_positions_shape(monkeypatch):
     assert rows[0] == {"symbol": "BTC-USD", "side": "Buy", "size": 2.0,
                        "avgPrice": 60000.0, "unrealisedPnl": 2000.0,
                        "liqPrice": 50000.0, "leverage": 5.0, "stopLoss": None,
-                       "tradeMode": 0}
+                       "marketId": 1, "tradeMode": 0}
     assert rows[1]["side"] == "Sell" and rows[1]["size"] == 3.0 and rows[1]["tradeMode"] == 1
+    assert rows[1]["marketId"] == 2
 
 
 def test_fetch_wallet_balance(monkeypatch):
@@ -218,3 +219,43 @@ def test_fetch_markets_survives_portfolio_supplement_error(monkeypatch):
         raise RuntimeError("400 no account")
     monkeypatch.setattr(c, "fetch_portfolio", boom)
     assert c.fetch_markets()[5] == "HYPE/USDC"
+
+
+def test_portfolio_fetched_once_per_client(monkeypatch):
+    """fetch_open_positions + fetch_wallet_balance + fetch_tickers = ONE
+    /v1/portfolio/details call (one client instance = one poll cycle)."""
+    portfolio = {"summary": {"total_account_value": "1", "usdc_balance": "1",
+                             "free_collateral": "1"}, "positions": []}
+    c = RiseXClient("0xabc", "https://api.test")
+    calls = []
+
+    def fake_get(path, params=None):
+        calls.append(path)
+        return {"/v1/portfolio/details": portfolio,
+                "/v1/orders/tpsl": {"orders": []},
+                "/v1/markets": {"markets": []}}[path]
+
+    monkeypatch.setattr(c, "_get", fake_get)
+    c.fetch_open_positions()
+    c.fetch_wallet_balance()
+    c.fetch_tickers()
+    assert calls.count("/v1/portfolio/details") == 1
+
+
+def test_invalidate_portfolio_refetches(monkeypatch):
+    """The sync path invalidates the memo after the (long) backfill so the
+    open-positions snapshot and balance anchor see a fresh portfolio."""
+    c = RiseXClient("0xabc", "https://api.test")
+    calls = []
+
+    def fake_get(path, params=None):
+        calls.append(path)
+        return {"summary": {}, "positions": []}
+
+    monkeypatch.setattr(c, "_get", fake_get)
+    c.fetch_portfolio()
+    c.fetch_portfolio()
+    assert calls.count("/v1/portfolio/details") == 1
+    c.invalidate_portfolio()
+    c.fetch_portfolio()
+    assert calls.count("/v1/portfolio/details") == 2

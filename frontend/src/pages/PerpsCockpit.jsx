@@ -119,6 +119,93 @@ function useHlMids(symbols) {
   return { marks, connected }
 }
 
+// Live marks for RiseX positions from RiseX's public orderbook stream — the mid
+// of top-of-book per market. A full snapshot arrives on subscribe, then level
+// diffs (quantity "0" deletes a level); a resubscribe re-snapshots, so book
+// drift self-heals on reconnect. Marks are display-only — the 5s REST poll
+// stays the source of truth. entries: [{ symbol, market_id }].
+function useRiseXBook(entries) {
+  const [marks, setMarks] = useState({})
+  const [connected, setConnected] = useState(false)
+  const key = entries
+    .filter((e) => e.market_id != null)
+    .map((e) => `${e.market_id}:${e.symbol}`)
+    .sort()
+    .join(',')
+
+  useEffect(() => {
+    if (!key) { setMarks({}); setConnected(false); return undefined }
+    const symbolByMarket = {}
+    for (const part of key.split(',')) {
+      const i = part.indexOf(':')
+      symbolByMarket[part.slice(0, i)] = part.slice(i + 1)
+    }
+    const marketIds = Object.keys(symbolByMarket).map(Number)
+    const books = {} // market_id -> { bids: Map(price->qty), asks: Map(price->qty) }
+    let ws
+    let closed = false
+    let retryTimer
+
+    function applyLevels(map, levels, replace) {
+      if (replace) map.clear()
+      for (const l of levels || []) {
+        const price = Number(l.price)
+        const qty = Number(l.quantity)
+        if (!Number.isFinite(price)) continue
+        if (qty > 0) map.set(price, qty)
+        else map.delete(price)
+      }
+    }
+
+    function midOf(book) {
+      if (!book || book.bids.size === 0 || book.asks.size === 0) return null
+      const bestBid = Math.max(...book.bids.keys())
+      const bestAsk = Math.min(...book.asks.keys())
+      return (bestBid + bestAsk) / 2
+    }
+
+    function connect() {
+      ws = new WebSocket('wss://ws.rise.trade/ws')
+      ws.onopen = () => {
+        setConnected(true)
+        ws.send(JSON.stringify({ method: 'subscribe', params: { channel: 'orderbook', market_ids: marketIds } }))
+      }
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data)
+          if (msg?.channel !== 'orderbook' || !msg.data) return
+          // subscribe acks carry data.market_ids (plural) -> no symbol -> ignored
+          const mid = String(msg.data.market_id ?? msg.market_id ?? '')
+          const sym = symbolByMarket[mid]
+          if (!sym) return
+          if (!msg.data.bids && !msg.data.asks) return
+          const book = books[mid] ?? (books[mid] = { bids: new Map(), asks: new Map() })
+          const snapshot = msg.type !== 'update'
+          applyLevels(book.bids, msg.data.bids, snapshot)
+          applyLevels(book.asks, msg.data.asks, snapshot)
+          const m = midOf(book)
+          // top-of-book moves are far rarer than raw diffs — natural render throttle
+          if (m != null) setMarks((prev) => (prev[sym] === m ? prev : { ...prev, [sym]: m }))
+        } catch { /* ignore malformed frames */ }
+      }
+      ws.onclose = () => {
+        setConnected(false)
+        if (!closed) retryTimer = setTimeout(connect, 3000)
+      }
+      ws.onerror = () => { try { ws.close() } catch { /* noop */ } }
+    }
+    connect()
+    return () => {
+      closed = true
+      clearTimeout(retryTimer)
+      setConnected(false)
+      try { ws && ws.close() } catch { /* noop */ }
+    }
+  }, [key])
+
+  return { marks, connected }
+}
+
 // Re-derive the mark-dependent numbers from a streamed mark price.
 function withLiveMark(p, mark) {
   if (mark == null || !(mark > 0)) return p
@@ -253,21 +340,29 @@ export default function PerpsCockpit() {
     refetchIntervalInBackground: false,
     retry: false,
   })
-  // Stream marks from each venue's WS and merge. Bybit perps are USDT-quoted and
-  // Hyperliquid uses bare coins, so the two symbol sets are disjoint — partition by
-  // suffix so each socket only opens for the venue actually on screen.
-  // de-dup: in the aggregate view two accounts can hold the same symbol; each
-  // venue WS only needs one subscription per symbol.
-  const symbols = [...new Set((data?.positions ?? []).map((p) => p.symbol))]
-  const bybitSyms = symbols.filter((s) => s.endsWith('USDT'))
-  const hlSyms = symbols.filter((s) => !s.endsWith('USDT'))
+  // Stream marks from each venue's WS and merge — partitioned by the venue field
+  // on every cockpit position row, so each socket only opens for the venue
+  // actually on screen. de-dup: in the aggregate view two accounts can hold the
+  // same symbol; each venue WS only needs one subscription per symbol.
+  const positionRows = data?.positions ?? []
+  const symbols = [...new Set(positionRows.map((p) => p.symbol))]
+  const bybitSyms = [...new Set(positionRows.filter((p) => p.venue === 'BYBIT').map((p) => p.symbol))]
+  const hlSyms = [...new Set(positionRows.filter((p) => p.venue === 'HYPERLIQUID').map((p) => p.symbol))]
+  const risexEntries = [...new Map(
+    positionRows
+      .filter((p) => p.venue === 'RISEX' && p.market_id != null)
+      .map((p) => [p.symbol, { symbol: p.symbol, market_id: p.market_id }]),
+  ).values()]
   const { marks: bybitMarks, connected: bybitConn } = useLiveMarks(bybitSyms)
   const { marks: hlMarks, connected: hlConn } = useHlMids(hlSyms)
-  const marks = { ...bybitMarks, ...hlMarks }
+  const { marks: risexMarks, connected: risexConn } = useRiseXBook(risexEntries)
+  const marks = { ...bybitMarks, ...hlMarks, ...risexMarks }
   // "Live" only when every venue actually on screen is connected (a single account
   // is one venue, so normally just that one; robust if a mixed view ever appears).
   const connected = symbols.length > 0 &&
-    (bybitSyms.length ? bybitConn : true) && (hlSyms.length ? hlConn : true)
+    (bybitSyms.length ? bybitConn : true) &&
+    (hlSyms.length ? hlConn : true) &&
+    (risexEntries.length ? risexConn : true)
 
   const header = (
     <div>

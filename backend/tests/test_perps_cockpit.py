@@ -518,3 +518,28 @@ def test_single_build_cockpit_unchanged_shape(db):
     assert out["account"]["account_id"] == acc.id
     assert "equity" in out["account"] and "open_risk_usd" in out["account"]
     assert "plan" in out and "positions" in out
+
+
+def test_cockpit_position_market_id_passthrough(db):
+    """RiseX raw rows carry marketId; the cockpit exposes it as market_id so the
+    frontend can subscribe to the RiseX orderbook WS for that market."""
+    s, u, acc = db
+
+    class RiseXShapedClient(FakeCockpitClient):
+        def fetch_open_positions(self):
+            rows = super().fetch_open_positions()
+            return [{**rows[0], "symbol": "BTC/USDC", "marketId": 7}]
+
+        def fetch_tickers(self, symbols=None):
+            return {"BTC/USDC": {"mark_price": 2250.0, "funding_rate": 0.0,
+                                 "next_funding_time": 1781300000000}}
+
+    out = build_cockpit(s, acc, RiseXShapedClient())
+    assert out["positions"][0]["market_id"] == 7
+
+
+def test_cockpit_position_market_id_none_without_marketid(db):
+    """Bybit/HL raw rows have no marketId -> cockpit market_id is None."""
+    s, u, acc = db
+    out = build_cockpit(s, acc, FakeCockpitClient())
+    assert out["positions"][0]["market_id"] is None

@@ -31,6 +31,7 @@ class RiseXClient:
         self._last_request = 0.0
         self._client = httpx.Client(timeout=timeout)
         self._markets: dict[int, str] | None = None
+        self._portfolio: dict | None = None
 
     def close(self) -> None:
         self._client.close()
@@ -148,7 +149,15 @@ class RiseXClient:
 
     # --- portfolio / cockpit shapes ---
     def fetch_portfolio(self) -> dict:
-        return self._get("/v1/portfolio/details", {"account": self.address}) or {}
+        if self._portfolio is None:
+            self._portfolio = self._get("/v1/portfolio/details",
+                                        {"account": self.address}) or {}
+        return self._portfolio
+
+    def invalidate_portfolio(self) -> None:
+        """Drop the memoized portfolio so the next fetch is fresh (used by the
+        sync path, where fetch_markets primes the memo before a long backfill)."""
+        self._portfolio = None
 
     def _stop_loss_by_market(self) -> dict[int, float]:
         """market_id -> active stop-loss trigger price, from the account's TP/SL
@@ -201,6 +210,7 @@ class RiseXClient:
                 "liqPrice": float(p["liquidation_price"]) if p.get("liquidation_price") else None,
                 "leverage": float(p["leverage"]) if p.get("leverage") else None,
                 "stopLoss": stops.get(int(mid)) if mid is not None else None,
+                "marketId": int(mid) if mid is not None else None,
                 "tradeMode": 1 if p.get("margin_mode") in (1, "1") else 0,
             })
         return out

@@ -160,6 +160,8 @@ def _account_live(db: Session, account, client) -> dict:
             # multi-account tagging
             "venue": account.venue.value, "account_id": account.id,
             "account_label": account.label,
+            # RiseX orderbook-WS subscription key (None for Bybit/HL)
+            "market_id": r.get("marketId"),
         })
 
     return {

@@ -112,6 +112,8 @@ class _FakeClient:
         return [{"symbol": "ETH/USDC", "side": "Sell", "size": 3.0, "avgPrice": 3000.0,
                  "unrealisedPnl": 0.0, "liqPrice": None, "leverage": 10.0,
                  "stopLoss": None, "tradeMode": 0}]
+    def invalidate_portfolio(self):
+        pass
     def close(self):
         self.closed = True
 
@@ -214,6 +216,8 @@ class _FakeClientLargeFills:
                    "time": base_time + i * 1_000_000}
     def fetch_open_positions(self):
         return []
+    def invalidate_portfolio(self):
+        pass
     def close(self):
         pass
 
@@ -331,6 +335,8 @@ class _FakeClientWithPortfolio:
         # No transfers: just return without yielding
         return
         yield  # noqa: F501 — unreachable, but syntactically valid generator
+    def invalidate_portfolio(self):
+        pass
     def close(self):
         self.closed = True
 
